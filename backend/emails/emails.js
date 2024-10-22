@@ -27,25 +27,25 @@ const sendVerificationEmail = async (email, verificationToken) => {
   }
 };
 
-const sendWelcomeEmail = async (email, username) => {
-  try {
-    await mailtrapClient.testing.send({
-      from: sender,
-      to: recipient,
-      template_uuid: '68f882ce-351f-4d6a-87e3-6a334986b526',
-      template_variables: {
-        'company_info_name': 'Movie Recommendation',
-        'name': username,
-      },
-    });
-
-    console.log(chalk.green.bold(`Welcome email sent successfully`));
-  } catch (error) {
-    console.log(
-      chalk.red.bold(`Error in sendWelcomeEmail - emails: ${error.message}`));
-    throw new Error(`Error in sendWelcomeEmail - emails: ${error.message}`);
-  }
-};
+// const sendWelcomeEmail = async (email, username) => {
+//   try {
+//     await mailtrapClient.testing.send({
+//       from: sender,
+//       to: recipient,
+//       template_uuid: '68f882ce-351f-4d6a-87e3-6a334986b526',
+//       template_variables: {
+//         'company_info_name': 'Movie Recommendation',
+//         'name': username,
+//       },
+//     });
+//
+//     console.log(chalk.green.bold(`Welcome email sent successfully`));
+//   } catch (error) {
+//     console.log(
+//       chalk.red.bold(`Error in sendWelcomeEmail - emails: ${error.message}`));
+//     throw new Error(`Error in sendWelcomeEmail - emails: ${error.message}`);
+//   }
+// };
 
 const sendResetPasswordEmail = async (email, resetPasswordURL) => {
   try {
@@ -88,7 +88,6 @@ const sendResetSuccessEmail = async (email) => {
 
 export {
   sendVerificationEmail,
-  sendWelcomeEmail,
   sendResetPasswordEmail,
   sendResetSuccessEmail,
 };

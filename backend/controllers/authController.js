@@ -8,7 +8,6 @@ import generateTokenAndSetCookie from '../utils/generateTokenAndSetCookie.js';
 import {
   sendResetPasswordEmail,
   sendVerificationEmail,
-  sendWelcomeEmail,
   sendResetSuccessEmail,
 } from '../emails/emails.js';
 
@@ -45,7 +44,7 @@ const signup = async (req, res) => {
       res.status(201).json({
         isSuccessful: true,
         message: 'User created successfully!',
-        user: newUser._id,
+        user: newUser,
       });
     }
   } catch (error) {
@@ -73,11 +72,15 @@ const verifyEmail = async (req, res) => {
       user.verificationTokenExpiredAt = undefined;
 
       await user.save();
-      await sendWelcomeEmail(user.email, user.username);
+      // await sendWelcomeEmail(user.email, user.username);
 
       console.log(chalk.green.bold('Email verified successfully!'));
       res.status(200).
-        json({ isSuccessful: true, message: 'Email verified successfully!' });
+        json({
+          isSuccessful: true,
+          message: 'Email verified successfully!',
+          user: user,
+        });
     }
   } catch (error) {
     console.log(
@@ -92,6 +95,7 @@ const login = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
+    // console.log(user);
     const isPasswordMatch = user &&
       (await bcrypt.compare(password, user.password));
 
@@ -108,7 +112,7 @@ const login = async (req, res) => {
       res.status(200).json({
         isSuccessful: true,
         message: 'User logged in successfully!',
-        user: user._id,
+        user: user,
       });
     }
   } catch (error) {
@@ -199,7 +203,8 @@ const resetPassword = async (req, res) => {
 
 const checkAuth = async (req, res) => {
   try {
-    const user = User.findById(req.userId);
+    const user = await User.findById(req.userId);
+    // console.log('checkAuth', user);
 
     if (!user) {
       throw new Error('User not found!');
@@ -207,7 +212,7 @@ const checkAuth = async (req, res) => {
       res.status(200).json({
         isSuccessful: true,
         message: 'User authenticated successfully!',
-        user: user._id,
+        user: user,
       });
     }
   } catch (error) {
