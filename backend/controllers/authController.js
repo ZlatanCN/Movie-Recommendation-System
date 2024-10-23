@@ -178,7 +178,7 @@ const resetPassword = async (req, res) => {
     if (!user) {
       throw new Error('Invalid or expired reset password token!');
     } else if (password !== confirmPassword) {
-      throw new Error('Passwords do not match!');
+      throw new Error('Password do not match!');
     } else {
       user.password = await bcrypt.hash(password, 10);
       user.resetPasswordToken = undefined;

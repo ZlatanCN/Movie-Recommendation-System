@@ -1,9 +1,11 @@
+import { Button } from 'antd';
+import useAuthStore from '../store/authStore.js';
+
 const HomePage = () => {
+  const { logout } = useAuthStore();
+
   return (
-    <div className={'hero-bg h-screen bg-center'}>
-      <h1>Home Page</h1>
-      <p>Welcome to the Home Page</p>
-    </div>
+    <Button onClick={logout}>Home Page</Button>
   );
 };
 

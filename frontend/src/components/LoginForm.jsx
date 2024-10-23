@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Input } from 'antd';
 import {
   EyeInvisibleOutlined,
-  EyeOutlined,
+  EyeOutlined, LoadingOutlined,
   LockOutlined,
   MailOutlined,
 } from '@ant-design/icons';
@@ -34,6 +34,7 @@ const LoginForm = (props) => {
             type={'email'}
             value={email}
             size={'large'}
+            required
             onChange={(e) => setEmail(e.target.value)}
             className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
           />
@@ -43,6 +44,7 @@ const LoginForm = (props) => {
             type={'password'}
             value={password}
             size={'large'}
+            required
             onChange={(e) => setPassword(e.target.value)}
             visibilityToggle={true}
             iconRender={visible => (
@@ -69,7 +71,7 @@ const LoginForm = (props) => {
             type={'submit'}
             className={'w-full py-3 px-4 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-lg shadow-lg hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-1 focus:ring-red-600 focus:ring-offset-1 focus:ring-offset-gray-900'}
           >
-            Login
+            {props.isLoading ? <LoadingOutlined /> : 'Login'}
           </motion.button>
         </form>
       </section>
@@ -85,11 +87,12 @@ const LoginForm = (props) => {
         </p>
       </footer>
     </motion.div>
-  )
-}
+  );
+};
 
 LoginForm.PropTypes = {
-  handleLogin: PropTypes.func.isRequired
-}
+  handleLogin: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired,
+};
 
 export default LoginForm;

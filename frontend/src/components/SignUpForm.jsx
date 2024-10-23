@@ -37,6 +37,7 @@ const SignUpForm = (props) => {
             type={'text'}
             value={username}
             size={'large'}
+            required
             onChange={(e) => setUsername(e.target.value)}
             className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
           />
@@ -46,6 +47,7 @@ const SignUpForm = (props) => {
             type={'email'}
             value={email}
             size={'large'}
+            required
             onChange={(e) => setEmail(e.target.value)}
             className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
           />
@@ -55,6 +57,7 @@ const SignUpForm = (props) => {
             type={'password'}
             value={password}
             size={'large'}
+            required
             onChange={(e) => setPassword(e.target.value)}
             visibilityToggle={true}
             iconRender={visible => (

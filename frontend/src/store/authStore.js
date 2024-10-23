@@ -96,24 +96,87 @@ const useAuthStore = create((set) => ({
     set({
       isCheckingAuth: true,
       error: null,
-    })
+    });
 
     try {
-      const response = await axios.get(`${API_URL}/check-auth`)
+      const response = await axios.get(`${API_URL}/check-auth`);
 
       set({
         user: response.data.user,
         isAuthenticated: true,
         isCheckingAuth: false,
-      })
+      });
     } catch (error) {
       set({
         error: null,
         isCheckingAuth: false,
         isAuthenticated: false,
-      })
+      });
     }
-  }
+  },
+
+  logout: async () => {
+    set({
+      isLoading: true,
+      error: null,
+    });
+
+    try {
+      await axios.post(`${API_URL}/logout`);
+
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      set({
+        error: error.response.data.message || 'Error in logging out!',
+        isLoading: false,
+      });
+
+      throw error;
+    }
+  },
+
+  forgotPassword: async (email) => {
+    set({
+      isLoading: true,
+      error: null,
+    });
+
+    try {
+      const response = await axios.post(`${API_URL}/forgot-password`,
+        { email });
+      set({ isLoading: false, isAuthenticating: false });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error.response.data.message || 'Error in sending email!',
+      });
+      throw error;
+    }
+  },
+
+  resetPassword: async (token, password, confirmPassword) => {
+    set({
+      isLoading: true,
+      error: null,
+    });
+
+    try {
+      const response = await axios.post(`${API_URL}/reset-password/${token}`,
+        { password, confirmPassword });
+      set({ isLoading: false, isAuthenticating: false });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error.response.data.message || 'Error in resetting password!',
+      });
+      throw error;
+    }
+  },
 }));
 
 export default useAuthStore;
