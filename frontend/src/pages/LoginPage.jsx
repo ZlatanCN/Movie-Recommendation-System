@@ -1,4 +1,4 @@
-import Header from '../components/Header.jsx';
+import NavBar from '../components/NavBar.jsx';
 import LoginForm from '../components/LoginForm.jsx';
 import useAuthStore from '../store/authStore.js';
 import { message } from 'antd';
@@ -28,8 +28,8 @@ const LoginPage = () => {
     <div className={'h-screen w-full hero-bg bg-center'}>
       {contextHolder}
 
-      {/* Header */}
-      <Header type={'auth'}/>
+      {/* NavBar */}
+      <NavBar type={'auth'}/>
 
       {/* Login Form */}
       <section className={'flex justify-center items-center mt-20 mx-3 '}>

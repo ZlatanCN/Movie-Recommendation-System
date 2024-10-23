@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import SignUpForm from '../components/SignUpForm.jsx';
-import Header from '../components/Header.jsx';
+import NavBar from '../components/NavBar.jsx';
 import useAuthStore from '../store/authStore.js';
 
 const SignUpPage = () => {
@@ -24,8 +24,8 @@ const SignUpPage = () => {
 
   return (
     <div className={'h-screen w-full hero-bg bg-center'}>
-      {/* Header */}
-      <Header type={'auth'}/>
+      {/* NavBar */}
+      <NavBar type={'auth'}/>
 
       {/*Sign Up Form*/}
       <section className={'flex justify-center items-center mt-20 mx-3 '}>

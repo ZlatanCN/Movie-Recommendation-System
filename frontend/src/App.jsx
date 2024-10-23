@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { ConfigProvider, Spin } from 'antd';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
+import Footer from './components/Footer.jsx';
 
 const App = () => {
   const { isCheckingAuth, checkAuth, isAuthenticated, user } = useAuthStore();
@@ -48,6 +49,8 @@ const App = () => {
           <Route path={'/reset-password/:token'} element={isAuthenticated ? <Navigate to={'/'}/> : <ResetPasswordPage/>}/>
         </Routes>
       )}
+
+      <Footer/>
     </>
   );
 };

@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { motion } from 'framer-motion';
-import { Input } from 'antd';
+import { ConfigProvider, Input } from 'antd';
 import {
   EyeInvisibleOutlined,
   EyeOutlined, LoadingOutlined,
@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { authInputTheme } from '../theme/inputTheme.js';
 
 const LoginForm = (props) => {
   const [email, setEmail] = useState('');
@@ -28,33 +29,35 @@ const LoginForm = (props) => {
         </h2>
         <form onSubmit={props.handleLogin} className={'flex flex-col gap-6'}>
           {/* Form Inputs */}
-          <Input
-            prefix={<MailOutlined className={'text-red-600 pr-1'}/>}
-            placeholder={'Email Address'}
-            type={'email'}
-            value={email}
-            size={'large'}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-            className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
-          />
-          <Input.Password
-            prefix={<LockOutlined className={'text-red-600 pr-1'}/>}
-            placeholder={'Password'}
-            type={'password'}
-            value={password}
-            size={'large'}
-            required
-            onChange={(e) => setPassword(e.target.value)}
-            visibilityToggle={true}
-            iconRender={visible => (
-              visible
-                ? <EyeOutlined style={{ color: 'rgb(220 38 38 / 1)' }}/>
-                : <EyeInvisibleOutlined
-                  style={{ color: 'rgb(220 38 38 / 1)' }}/>
-            )}
-            className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
-          />
+          <ConfigProvider theme={authInputTheme}>
+            <Input
+              prefix={<MailOutlined className={'text-red-600 pr-1'}/>}
+              placeholder={'Email Address'}
+              type={'email'}
+              value={email}
+              size={'large'}
+              required
+              onChange={(e) => setEmail(e.target.value)}
+              className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
+            />
+            <Input.Password
+              prefix={<LockOutlined className={'text-red-600 pr-1'}/>}
+              placeholder={'Password'}
+              type={'password'}
+              value={password}
+              size={'large'}
+              required
+              onChange={(e) => setPassword(e.target.value)}
+              visibilityToggle={true}
+              iconRender={visible => (
+                visible
+                  ? <EyeOutlined style={{ color: 'rgb(220 38 38 / 1)' }}/>
+                  : <EyeInvisibleOutlined
+                    style={{ color: 'rgb(220 38 38 / 1)' }}/>
+              )}
+              className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
+            />
+          </ConfigProvider>
 
           {/* Forgot Password */}
           <div className={'flex items-center'}>

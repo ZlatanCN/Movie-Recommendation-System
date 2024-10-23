@@ -1,11 +1,18 @@
-import { Button } from 'antd';
 import useAuthStore from '../store/authStore.js';
+import HomeScreen from '../components/HomeScreen.jsx';
+import AuthScreen from '../components/AuthScreen.jsx';
 
 const HomePage = () => {
-  const { logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   return (
-    <Button onClick={logout}>Home Page</Button>
+    <>
+      {!user ? (
+        <HomeScreen/>
+      ) : (
+        <AuthScreen/>
+      )}
+    </>
   );
 };
 

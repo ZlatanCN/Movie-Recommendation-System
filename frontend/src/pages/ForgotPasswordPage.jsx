@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import Header from '../components/Header.jsx';
+import NavBar from '../components/NavBar.jsx';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { LeftOutlined, LoadingOutlined, MailOutlined } from '@ant-design/icons';
@@ -30,8 +30,8 @@ const ForgotPasswordPage = (props) => {
     <div className={'h-screen w-full hero-bg bg-center'}>
       {contextHolder}
 
-      {/* Header */}
-      <Header type={'auth'}/>
+      {/* NavBar */}
+      <NavBar type={'auth'}/>
 
       <section className={'flex justify-center items-center mt-20 mx-3 '}>
         <motion.div

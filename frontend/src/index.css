@@ -6,27 +6,27 @@
   background-image: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.1)), url("../public/hero.png");
 }
 
-.ant-input::placeholder {
-  @apply text-gray-400
-}
+/*.ant-input::placeholder {*/
+/*  @apply text-gray-400*/
+/*}*/
 
 
-.ant-input-outlined {
-  @apply hover:bg-gray-800 hover:bg-opacity-50 hover:border-gray-700
-}
+/*.ant-input-outlined {*/
+/*  @apply hover:bg-gray-800 hover:bg-opacity-50 hover:border-gray-700*/
+/*}*/
 
-.ant-input-outlined:focus-within {
-  @apply bg-gray-800 border-red-600
-}
+/*.ant-input-outlined:focus-within {*/
+/*  @apply bg-gray-800 border-red-600*/
+/*}*/
 
-.ant-otp {
-  @apply flex justify-between gap-5
-}
+/*.ant-otp {*/
+/*  @apply flex justify-between gap-5*/
+/*}*/
 
-.ant-otp-input {
-  @apply w-12 h-12 text-center text-2xl font-bold bg-gray-700 text-white border-2 border-gray-700 rounded-lg
-}
+/*.ant-otp-input {*/
+/*  @apply w-12 h-12 text-center text-2xl font-bold bg-gray-700 text-white border-2 border-gray-700 rounded-lg*/
+/*}*/
 
-.ant-message .ant-message-notice-wrapper .ant-message-notice-content {
-  @apply bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-xl shadow-xl
-}
+/*.ant-message .ant-message-notice-wrapper .ant-message-notice-content {*/
+/*  @apply bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-xl shadow-xl*/
+/*}*/
