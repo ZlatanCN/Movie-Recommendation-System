@@ -9,6 +9,7 @@ import { ConfigProvider, Spin } from 'antd';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import Footer from './components/Footer.jsx';
+import LoadingSpin from './components/LoadingSpin.jsx';
 
 const App = () => {
   const { isCheckingAuth, checkAuth, isAuthenticated, user } = useAuthStore();
@@ -25,20 +26,10 @@ const App = () => {
   return (
     <>
       {isCheckingAuth ? (
-        <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: 'rgb(239, 68, 68)',
-          }}}
-        >
-          <Spin
-            size={'large'}
-            className={'h-screen w-full hero-bg bg-center flex justify-center items-center'}
-          />
-        </ConfigProvider>
+        <LoadingSpin/>
       ) : (
         <Routes>
-          <Route path={'/'} element={isAuthenticated ? <HomePage/> : <Navigate to={'/login'}/>}/>
+          <Route path={'/'} element={<HomePage/>}/>
           <Route path={'/signup'} element={isAuthenticated ? <Navigate to={'/'}/> : <SignUpPage/>}/>
           <Route path={'/login'} element={isAuthenticated ? <Navigate to={'/'}/> : <LoginPage/>}/>
           <Route
@@ -47,6 +38,7 @@ const App = () => {
           />
           <Route path={'/forgot-password'} element={isAuthenticated ? <Navigate to={'/'}/> : <ForgotPasswordPage/>}/>
           <Route path={'/reset-password/:token'} element={isAuthenticated ? <Navigate to={'/'}/> : <ResetPasswordPage/>}/>
+          <Route path={'/watch/:id'} element={isAuthenticated ? <WatachPage/> : <Navigate to={'/'}/>}></Route>
         </Routes>
       )}
 

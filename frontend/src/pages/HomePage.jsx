@@ -5,9 +5,11 @@ import AuthScreen from '../components/AuthScreen.jsx';
 const HomePage = () => {
   const { user } = useAuthStore();
 
+
+
   return (
     <>
-      {!user ? (
+      {user ? (
         <HomeScreen/>
       ) : (
         <AuthScreen/>

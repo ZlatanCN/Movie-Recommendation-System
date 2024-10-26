@@ -14,8 +14,11 @@ import { useState } from 'react';
 import { authInputTheme } from '../theme/inputTheme.js';
 
 const SignUpForm = (props) => {
+  const {searchParams} = new URL(document.location);
+  const emailParam = searchParams.get('email');
+
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(emailParam || '');
   const [password, setPassword] = useState('');
 
   return (
@@ -34,16 +37,6 @@ const SignUpForm = (props) => {
           {/* Form Inputs */}
           <ConfigProvider theme={authInputTheme}>
             <Input
-              prefix={<UserOutlined className={'text-red-600 pr-1'}/>}
-              placeholder={'Username'}
-              type={'text'}
-              value={username}
-              size={'large'}
-              required
-              onChange={(e) => setUsername(e.target.value)}
-              className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
-            />
-            <Input
               prefix={<MailOutlined className={'text-red-600 pr-1'}/>}
               placeholder={'Email Address'}
               type={'email'}
@@ -51,6 +44,16 @@ const SignUpForm = (props) => {
               size={'large'}
               required
               onChange={(e) => setEmail(e.target.value)}
+              className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
+            />
+            <Input
+              prefix={<UserOutlined className={'text-red-600 pr-1'}/>}
+              placeholder={'Username'}
+              type={'text'}
+              value={username}
+              size={'large'}
+              required
+              onChange={(e) => setUsername(e.target.value)}
               className={'bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700 text-white'}
             />
             <Input.Password
