@@ -3,8 +3,7 @@ import fetchFromTMDB from '../config/tmdb.js';
 
 const getTrendingMovie = async (req, res) => {
   try {
-    const data = await fetchFromTMDB(
-      'https://api.themoviedb.org/3/trending/movie/week?language=zh-CN');
+    const data = await fetchFromTMDB('https://api.themoviedb.org/3/trending/movie/week');
     const randomMovie = data.results[Math.floor(
       Math.random() * data.results?.length)];
 

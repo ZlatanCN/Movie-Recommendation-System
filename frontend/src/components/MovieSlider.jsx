@@ -57,10 +57,10 @@ const MovieSlider = (props) => {
           <Link
             key={movie.id}
             to={`/watch/${movie.id}`}
-            className={'min-w-[250px] relative group'}
+            className={'min-w-[400px] relative group'}
           >
             <div
-              className={'rounded-lg overflow-hidden transition-transform duration-300 ease-in-out group-hover:scale-110'}>
+              className={'rounded overflow-hidden transition-transform duration-300 ease-in-out group-hover:scale-110'}>
               <img
                 src={SMALL_IMG_BASE_URL + movie.backdrop_path}
                 alt={'smallBackdrop'}

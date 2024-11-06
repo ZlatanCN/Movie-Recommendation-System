@@ -10,6 +10,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import Footer from './components/Footer.jsx';
 import LoadingSpin from './components/LoadingSpin.jsx';
+import WatchPage from './pages/WatchPage.jsx';
+import SearchPage from './pages/SearchPage.jsx';
 
 const App = () => {
   const { isCheckingAuth, checkAuth, isAuthenticated, user } = useAuthStore();
@@ -38,7 +40,8 @@ const App = () => {
           />
           <Route path={'/forgot-password'} element={isAuthenticated ? <Navigate to={'/'}/> : <ForgotPasswordPage/>}/>
           <Route path={'/reset-password/:token'} element={isAuthenticated ? <Navigate to={'/'}/> : <ResetPasswordPage/>}/>
-          <Route path={'/watch/:id'} element={isAuthenticated ? <WatachPage/> : <Navigate to={'/'}/>}></Route>
+          <Route path={'/watch/:id'} element={isAuthenticated ? <WatchPage/> : <Navigate to={'/'}/>}/>
+          <Route path={'/search'} element={isAuthenticated ? <SearchPage/> : <Navigate to={'/'}/>}/>
         </Routes>
       )}
 

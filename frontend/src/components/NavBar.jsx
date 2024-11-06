@@ -49,12 +49,12 @@ const NavBar = (props) => {
             </Link>
 
             {/*Desktop Navigation*/}
-            <nav className={'hidden sm:flex gap-2 items-center'}>
-              <Link to={'/'} className={'hover:underline'}>
+            <nav className={'hidden sm:flex gap-8 items-center'}>
+              <Link to={'/'} className={'hover:underline font-semibold'}>
                 Movies
               </Link>
-              <Link to={'/history'} className={'hover:underline'}>
-                Search History
+              <Link to={'/history'} className={'hover:underline font-semibold'}>
+                History
               </Link>
             </nav>
           </nav>

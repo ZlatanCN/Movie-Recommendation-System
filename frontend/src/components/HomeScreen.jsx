@@ -7,10 +7,7 @@ import {
 } from '@ant-design/icons';
 import useGetTrendingMovie from '../hooks/useGetTrendingMovie.jsx';
 import { MOVIE_CATEGORIES, ORIGINAL_IMG_BASE_URL } from '../utils/constants.js';
-import { ConfigProvider, Spin } from 'antd';
 import MovieSlider from './MovieSlider.jsx';
-import { useState } from 'react';
-import { loadingSpinTheme } from '../theme/spinTheme.js';
 import LoadingSpin from './LoadingSpin.jsx';
 
 const HomeScreen = () => {
@@ -25,7 +22,9 @@ const HomeScreen = () => {
   return (
     <>
       {/*Hero Section*/}
-      <section className={'relative h-screen text-white'}>
+      <section
+        className={'relative h-screen text-white'}
+      >
         {/* Navigation Bar */}
         <NavBar/>
 
@@ -33,7 +32,6 @@ const HomeScreen = () => {
         <img
           src={ORIGINAL_IMG_BASE_URL + trendingMovie?.backdrop_path}
           alt={'Backdrop'}
-          onLoad={() => setIsImgLoading(false)}
           className={'absolute top-0 left-0 w-full h-full object-cover -z-50'}
         />
         <div
