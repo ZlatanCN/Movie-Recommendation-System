@@ -45,3 +45,33 @@
 .ant-message .ant-message-notice-wrapper .ant-message-notice-content {
   @apply bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-xl shadow-xl
 }
+
+.error-page--content::before {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.5) 0,
+    rgba(0, 0, 0, 0.2) 45%,
+    rgba(0, 0, 0, 0.1) 55%,
+    transparent 70%
+  );
+  bottom: -10vw;
+  content: "";
+  left: 10vw;
+  position: absolute;
+  right: 10vw;
+  top: -10vw;
+  z-index: -1;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgb(31 41 55 / 0.5);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: black;
+}

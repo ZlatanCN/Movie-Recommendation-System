@@ -13,17 +13,24 @@ const searchPerson = async (req, res) => {
       return res.status(404).send(null);
     } else {
       const userId = req.userId;
-      await User.findByIdAndUpdate(userId, {
-        $push: {
-          searchHistory: {
-            id: response.results[0].id,
-            image: response.results[0].profile_path,
-            title: response.results[0].name,
-            searchType: 'person',
-            createdAt: new Date(),
+      const user = req.user;
+      const isAlreadyInHistory = user.searchHistory.some(
+        (history) => (history.id === response.results[0].id)
+      );
+
+      if (!isAlreadyInHistory) {
+        await User.findByIdAndUpdate(userId, {
+          $push: {
+            searchHistory: {
+              id: response.results[0].id,
+              image: response.results[0].profile_path,
+              title: response.results[0].name,
+              searchType: 'person',
+              createdAt: new Date(),
+            },
           },
-        },
-      });
+        });
+      }
 
       res.status(200).json({
         isSuccessful: true,
@@ -52,17 +59,24 @@ const searchMovie = async (req, res) => {
       return res.status(404).send(null);
     } else {
       const userId = req.userId;
-      await User.findByIdAndUpdate(userId, {
-        $push: {
-          searchHistory: {
-            id: response.results[0].id,
-            image: response.results[0].poster_path,
-            title: response.results[0].title,
-            searchType: 'movie',
-            createdAt: new Date(),
+      const user = req.user;
+      const isAlreadyInHistory = user.searchHistory.some(
+        (history) => (history.id === response.results[0].id)
+      );
+
+      if (!isAlreadyInHistory) {
+        await User.findByIdAndUpdate(userId, {
+          $push: {
+            searchHistory: {
+              id: response.results[0].id,
+              image: response.results[0].poster_path,
+              title: response.results[0].title,
+              searchType: 'movie',
+              createdAt: new Date(),
+            },
           },
-        },
-      });
+        });
+      }
 
       res.status(200).json({
         isSuccessful: true,

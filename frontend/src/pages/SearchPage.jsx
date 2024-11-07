@@ -49,8 +49,6 @@ const SearchPage = () => {
     setSearchResults([]);
   };
 
-  console.log(searchResults);
-
   return (
     <>
       {contextHolder}
@@ -116,7 +114,9 @@ const SearchPage = () => {
           </motion.form>
 
           {/* Search Results */}
-          <section className={'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'}>
+          <section
+            className={'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'}
+          >
             {searchResults.map((result) => {
               if (!result?.poster_path && !result?.profile_path) {
                 console.log('No image found for', result);
