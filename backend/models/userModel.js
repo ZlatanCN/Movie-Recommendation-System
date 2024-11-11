@@ -23,6 +23,10 @@ const userSchema = mongoose.Schema({
     type: Array,
     default: []
   },
+  ratedMovies: {
+    type: Array,
+    default: []
+  },
   lastLogin: {
     type: Date,
     default: Date.now

@@ -13,6 +13,7 @@ import WatchPage from './pages/WatchPage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import RatingPage from './pages/RatingPage.jsx';
 
 const App = () => {
   const { isCheckingAuth, checkAuth, isAuthenticated, user } = useAuthStore();
@@ -41,6 +42,7 @@ const App = () => {
           <Route path={'/watch/:id'} element={isAuthenticated ? <WatchPage/> : <Navigate to={'/'}/>}/>
           <Route path={'/search'} element={isAuthenticated ? <SearchPage/> : <Navigate to={'/'}/>}/>
           <Route path={'/history'} element={isAuthenticated ? <HistoryPage/> : <Navigate to={'/'}/>}/>
+          <Route path={'/rating'} element={isAuthenticated ? <RatingPage/> : <Navigate to={'/'}/>}/>
           <Route path={'/*'} element={<NotFoundPage/>}/>
         </Routes>
       )}

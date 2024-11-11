@@ -9,7 +9,7 @@ const authInputTheme = {
       algorithm: true,
     },
   },
-};
+}
 
 const heroInputTheme = {
   components: {
@@ -33,8 +33,8 @@ const searchInputTheme = {
       activeBg: 'rgb(31 41 55)',
       colorTextPlaceholder: 'rgb(156 163 175 / 1)',
       algorithm: true,
-    }
-  }
+    },
+  },
 }
 
-export { authInputTheme, heroInputTheme, searchInputTheme };
+export { authInputTheme, heroInputTheme, searchInputTheme }

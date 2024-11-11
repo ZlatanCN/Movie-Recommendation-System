@@ -38,6 +38,7 @@ const signup = async (req, res) => {
 
       await newUser.save();
 
+      console.log(`Email: ${email}`);
       generateTokenAndSetCookie(res, newUser._id);
       await sendVerificationEmail(email, verificationToken);
 

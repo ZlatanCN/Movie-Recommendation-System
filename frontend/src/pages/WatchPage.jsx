@@ -2,7 +2,12 @@ import { Link, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import NavBar from '../components/NavBar.jsx';
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import {
+  LeftOutlined,
+  LoadingOutlined,
+  RightOutlined,
+  StarOutlined,
+} from '@ant-design/icons';
 import ReactPlayer from 'react-player';
 import {
   ORIGINAL_IMG_BASE_URL,
@@ -12,12 +17,31 @@ import { motion } from 'framer-motion';
 import useWatch from '../hooks/useWatch.jsx';
 import formatDate from '../utils/formatDate.js';
 import LoadingSpin from '../components/LoadingSpin.jsx';
+import { ConfigProvider, Modal, Rate } from 'antd';
+import { rateModalTheme } from '../theme/modalTheme.js';
+import RatingModal from '../components/RatingModal.jsx';
 
 const WatchPage = () => {
   const { id } = useParams();
   const { trailers, content, similarContent, isLoading } = useWatch(id);
   const [currentTrailerIndex, setCurrentTrailerIndex] = useState(0);
   const sliderRef = useRef(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const showModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const rateMovie = async (id, rating) => {
+    try {
+      const response = await axios.post(`/api/rating/${id}`, { rating });
+      if (!response.data.isSuccessful) {
+        throw new Error('Failed to update rating!');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   const handleDirection = (direction) => {
     if (direction === 'left') {
@@ -92,6 +116,32 @@ const WatchPage = () => {
                 <p className={'mt-4 text-lg'}>
                   {content?.overview}
                 </p>
+                <div className={'flex mt-8 text-xl items-center'}>
+                  <span className={'font-semibold'}>
+                    {parseFloat(content?.vote_average).toFixed(1)}
+                  </span>
+                  <Rate
+                    disabled
+                    allowHalf
+                    defaultValue={content?.vote_average / 2}
+                    className={'ml-3 flex justify-center items-center'}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={showModal}
+                    className={'bg-white text-black py-2 px-3 rounded ml-4 font-semibold text-lg flex items-center'}
+                  >
+                    <StarOutlined className={'pr-1.5'}/> Rate
+                  </motion.button>
+                  <RatingModal
+                    content={content}
+                    isModalOpen={isModalOpen}
+                    setIsModalOpen={setIsModalOpen}
+                    id={id}
+                    updateRating={rateMovie}
+                  />
+                </div>
               </div>
               <img
                 src={ORIGINAL_IMG_BASE_URL + content?.poster_path}
@@ -119,6 +169,7 @@ const WatchPage = () => {
                       className={'mx-auto overflow-hidden rounded-lg'}
                     />
                   </motion.div>
+
                   {/* Trailers Buttons */}
                   {trailers.length > 0 && (
                     <>

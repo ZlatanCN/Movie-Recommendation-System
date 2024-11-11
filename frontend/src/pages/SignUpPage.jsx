@@ -10,8 +10,8 @@ const SignUpPage = () => {
   const handleSignUp = async (e) => {
     e.preventDefault();
 
-    const username = e.target[0].value
-    const email = e.target[1].value
+    const username = e.target[1].value
+    const email = e.target[0].value
     const password = e.target[2].value
 
     try {

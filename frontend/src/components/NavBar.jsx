@@ -13,7 +13,7 @@ import { logoutPopConfirmTheme } from '../theme/popConfirmTheme.js';
 
 const NavBar = (props) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -23,7 +23,7 @@ const NavBar = (props) => {
     case 'auth':
       return (
         <header
-          className={'max-w-6xl mx-auto flex items-center justify-between p-4 pb-10'}>
+          className={'max-w-6xl mx-auto flex items-center justify-between p-4 pb-10 pt-7'}>
           <img src={'/netflix-logo.png'} alt={'netflixLogo'}
                className={'w-32 md:w-52'}/>
           <Link to={'/login'}>
@@ -41,7 +41,7 @@ const NavBar = (props) => {
     default:
       return (
         <header
-          className={'max-w-6xl mx-auto flex flex-wrap items-center justify-between p-4 h-20'}>
+          className={'max-w-6xl mx-auto flex flex-wrap items-center justify-between p-4 h-20 pt-7 mb-7'}>
           <nav className={'flex items-center gap-10 z-50'}>
             <Link to={'/'}>
               <img src={'/netflix-logo.png'} alt={'netflixLogo'}
@@ -52,6 +52,9 @@ const NavBar = (props) => {
             <nav className={'hidden sm:flex gap-8 items-center'}>
               <Link to={'/'} className={'hover:underline font-semibold'}>
                 Movies
+              </Link>
+              <Link to={'/rating'} className={'hover:underline font-semibold'}>
+                Rating
               </Link>
               <Link to={'/history'} className={'hover:underline font-semibold'}>
                 History
@@ -114,19 +117,19 @@ const NavBar = (props) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.38 }}
-              className={'w-full sm:hidden mt-4 z-50 bg-black border rounded border-gray-800'}>
+              className={'w-full mt-4 sm:hidden z-50 bg-black border rounded border-gray-800'}>
               <Link
                 to={'/'}
                 onClick={toggleMobileMenu}
-                className={'block p-2 hover:underline'}
+                className={'block p-2 hover:underline font-semibold'}
               >
                 Movies
               </Link>
               <Link
                 to={'/history'}
-                className={'block p-2 hover:underline'}
+                className={'block p-2 hover:underline font-semibold'}
               >
-                Search History
+                History
               </Link>
             </motion.nav>
           )}
