@@ -2,7 +2,7 @@ import sys
 import io
 import json
 import pandas as pd
-from defusedxml.ElementTree import parse
+import sqlite3
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics.pairwise import cosine_similarity
@@ -161,6 +161,65 @@ def normalize_data(movie_df):
     return movie_df_final
 
 
+def store_to_sqlite(movie_df, db_path, table_name):
+    """
+    将清洗后的电影数据存储到 SQLite 数据库
+    :param table_name: 一个字符串，表示要存储数据的表名
+    :param db_path: 一个字符串，表示 SQLite 数据库的路径
+    :param movie_df: 一个 Pandas DataFrame，包含了电影数据
+    """
+
+    # 连接到 SQLite 数据库
+    conn = sqlite3.connect(db_path)
+
+    # 将数据存储到数据库
+    movie_df.to_sql(table_name, conn, if_exists='replace', index=False)
+
+    # 关闭数据库连接
+    conn.close()
+
+
+def check_table_exists(db_path, table_name):
+    """
+    检查 SQLite 数据库中是否存在指定的表
+    :param table_name: 一个字符串，表示要检查的表名
+    :param db_path: 一个字符串，表示 SQLite 数据库的路径
+    :return: 返回一个布尔值，表示表是否存在
+    """
+
+    # 连接到 SQLite 数据库
+    conn = sqlite3.connect(db_path)
+
+    # 检查表是否存在
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+    table_exists = cursor.fetchone() is not None
+
+    # 关闭数据库连接
+    conn.close()
+
+    return table_exists
+
+def load_data_from_sqlite(db_path, table_name):
+    """
+    从 SQLite 数据库中加载数据
+    :param table_name: 一个字符串，表示要加载数据的表名
+    :param db_path: 一个字符串，表示 SQLite 数据库的路径
+    :return: 返回一个 Pandas DataFrame，包含了从数据库中加载的数据
+    """
+
+    # 连接到 SQLite 数据库
+    conn = sqlite3.connect(db_path)
+
+    # 从数据库中加载数据
+    movie_df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+
+    # 关闭数据库连接
+    conn.close()
+
+    return movie_df
+
+
 def get_movie_recommendations(movie_name, movie_df):
     """
     根据电影名称获取推荐的电影列表
@@ -256,22 +315,38 @@ if __name__ == '__main__':
     else:
         movie_id = 238 # 默认电影ID为238
 
+    if not check_table_exists('dataset/movie_data.db', 'normalized_movies'):
+        try:
+            # 加载并清理数据
+            movie_data = load_and_clean_data('dataset/TMDB_movie_dataset_v11.csv')
+
+            # 对电影类型进行编码
+            movie_data_encoded = encode_genres(movie_data)
+
+            # 清理电影标题和语言信息
+            movie_data_cleaned = clean_titles_and_languages(movie_data_encoded)
+
+            # 对成人内容和语言进行编码
+            movie_data_final = encode_adult_and_language(movie_data_cleaned)
+
+            # 标准化数据
+            movie_data_normalized = normalize_data(movie_data_final)
+
+            # 将清洗后的电影数据存储到 SQLite 数据库
+            store_to_sqlite(movie_data_normalized, 'dataset/movie_data.db', 'normalized_movies')
+        except FileNotFoundError as e:
+            print(f"Error: The file was not found - {e}")
+        except pd.errors.EmptyDataError as e:
+            print(f"Error: The file is empty - {e}")
+        except pd.errors.ParserError as e:
+            print(f"Error: There was an error parsing the file - {e}")
+        except Exception as e:
+            print(f"Error: An unexpected error occurred: {e}")
+    else:
+        # 从 SQLite 数据库中加载数据
+        movie_data_normalized = load_data_from_sqlite('dataset/movie_data.db', 'normalized_movies')
+
     try:
-        # 加载并清理数据
-        movie_data = load_and_clean_data('dataset/TMDB_movie_dataset_v11.csv')
-
-        # 对电影类型进行编码
-        movie_data_encoded = encode_genres(movie_data)
-
-        # 清理电影标题和语言信息
-        movie_data_cleaned = clean_titles_and_languages(movie_data_encoded)
-
-        # 对成人内容和语言进行编码
-        movie_data_final = encode_adult_and_language(movie_data_cleaned)
-
-        # 标准化数据
-        movie_data_normalized = normalize_data(movie_data_final)
-
         # 获取推荐结果
         # recommended_movies = get_movie_recommendations(movie_name, movie_data_normalized)
         recommended_movies_by_id = get_recommendation_by_id(movie_id, movie_data_normalized)
@@ -281,11 +356,7 @@ if __name__ == '__main__':
         recommended_movies_dict = {str(k): v for k, v in recommended_movies_by_id.to_dict().items()}
         print(json.dumps(recommended_movies_dict))
 
-    except FileNotFoundError as e:
-        print(f"Error: The file was not found - {e}")
-    except pd.errors.EmptyDataError as e:
-        print(f"Error: The file is empty - {e}")
-    except pd.errors.ParserError as e:
-        print(f"Error: There was an error parsing the file - {e}")
+    except KeyError as e:
+        print(f"Error: The movie ID was not found - {e}")
     except Exception as e:
         print(f"Error: An unexpected error occurred: {e}")

@@ -14,17 +14,26 @@ const recommendContentBased = async (req, res) => {
   try {
     const message = await PythonShell.run(
       'algorithm/contentbased_recommendation.py', options)
-    if (message[0].startsWith('Error:')) {
-      throw new Error(message)
+    if (message[0].startsWith('Error: The movie ID was not found')) {
+      const data = await fetchFromTMDB(
+        `https://api.themoviedb.org/3/movie/${id}/similar`)
+      res.status(200).json({
+        isSuccessful: true,
+        content: data.results,
+      })
+    } else if (message[0].startsWith('Error:')) {
+      throw new Error(message[0])
     } else {
       const recommendations = JSON.parse(message[0])
       const formattedMessage = await Promise.all(
         Object.entries(recommendations).map(async ([id, score]) => {
-          const data = await fetchFromTMDB(`https://api.themoviedb.org/3/movie/${id}`)
+          const data = await fetchFromTMDB(
+            `https://api.themoviedb.org/3/movie/${id}`)
           return {
             id: parseInt(id),
             score: score,
-            details: data,
+            poster_path: data.poster_path,
+            title: data.title || data.name || data.original_title,
           }
         }),
       )

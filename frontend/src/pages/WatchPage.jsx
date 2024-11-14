@@ -221,7 +221,7 @@ const WatchPage = () => {
                     if (!content?.poster_path) return null;
                     return (
                       <Link
-                        key={content._id}
+                        key={content.score}
                         to={`/watch/${content.id}`}
                         className={'w-52 flex-none'}
                       >

@@ -20,13 +20,21 @@ const useWatch = (id) => {
   };
 
   const getSimilarMovies = async () => {
+    // try {
+    //   const response = await axios.get(`/api/movie/${id}/similar`);
+    //   setSimilarContent(response.data.similar);
+    // } catch (error) {
+    //   if (error.message.includes('404')) {
+    //     setSimilarContent([]);
+    //   }
+    //   console.log(`Error in getSimilarMovies - WatchPage: ${error.message}`);
+    // }
+
     try {
-      const response = await axios.get(`/api/movie/${id}/similar`);
-      setSimilarContent(response.data.similar);
+      const response = await axios.get(`/api/recommendation/${id}`);
+      setSimilarContent(response.data.content);
     } catch (error) {
-      if (error.message.includes('404')) {
-        setSimilarContent([]);
-      }
+      setSimilarContent([]);
       console.log(`Error in getSimilarMovies - WatchPage: ${error.message}`);
     }
   };
