@@ -15,4 +15,9 @@ echo "$SSH_PASSWORD" | sudo -S service ssh restart
 # 启动 Spark
 /usr/local/spark/sbin/start-all.sh
 
+# 启动 Flask 监听 content-based 推荐请求
+python3 /mnt/c/Users/hasee/Desktop/movie-recommendation/algorithm/contentbased_recommendation.py &
+
 echo "All services have been started successfully."
+
+wait

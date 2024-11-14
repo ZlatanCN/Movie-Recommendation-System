@@ -6,4 +6,7 @@
 # 关闭 Spark
 /usr/local/spark/sbin/stop-all.sh
 
+# 关闭 Flask 监听 content-based 推荐请求
+pkill -f /mnt/c/Users/hasee/Desktop/movie-recommendation/algorithm/contentbased_recommendation.py
+
 echo "All services stopped."
