@@ -12,9 +12,6 @@ echo "$SSH_PASSWORD" | sudo -S service ssh restart
 # 启动 Hadoop
 /usr/local/hadoop/sbin/start-all.sh
 
-# 启动 HBase
-/usr/local/hbase/bin/start-hbase.sh
-
 # 启动 Spark
 /usr/local/spark/sbin/start-all.sh
 

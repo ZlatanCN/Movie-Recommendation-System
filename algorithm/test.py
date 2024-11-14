@@ -1,19 +1,18 @@
 import sys
 import io
 import json
-
+import pymongo
+from bson.binary import Binary
+import pickle
 from pyexpat import features
 
-from pyspark.mllib.linalg import VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
 from pyspark.ml.feature import StandardScaler, OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.ml import Pipeline
-import numpy as np
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.feature import CountVectorizer
-import happybase
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -148,51 +147,6 @@ def normalize_features(movie_df):
     return movie_df
 
 
-def save_to_hbase(movie_df):
-    """
-    保存数据到HBase
-    :param movie_df: DataFrame，包含电影数据
-    """
-    # 创建HBase连接
-    connection = happybase.Connection('localhost')
-    table = connection.table('movies')
-
-    for row in movie_df.collect():
-        row_key = str(row.id) # 电影ID
-        features = row.scaled_features.toArray().tolist() # 特征
-        features_str = ','.join(map(str, features)) # 转为字符串
-
-        # 保存到 HBase，列族为“cf”，列名为“features”
-        table.put(row_key, {b'cf:features': features_str.encode('utf-8')})
-
-    connection.close()
-
-
-def load_from_hbase(spark):
-    """
-    从HBase加载数据
-    :param spark: SparkSession对象
-    :return: 返回包含电影数据的DataFrame
-    """
-    connection = happybase.Connection('localhost')
-    table = connection.table('movies')
-
-    rows = []
-    for key, data in table.scan():
-        id = int(key.decode('utf-8'))
-        features = list(map(float, data[b'cf:features'].decode('utf-8').split(',')))
-        rows.append((id, Vectors.dense(features)))
-
-    schema = StructType([
-        StructField("id", IntegerType(), True),
-        StructField("scaled_features", VectorUDT(), True)
-    ])
-
-    movie_df = spark.createDataFrame(rows, schema)
-    connection.close()
-    return movie_df
-
-
 def calculate_similarities(movie_df, target_id):
     """
     计算电影相似度
@@ -231,7 +185,7 @@ def main():
         movie_id = int(sys.argv[1]) if len(sys.argv) > 1 else 424
 
         # 加载和处理数据
-        movie_df = load_and_clean_data(spark, '/TMDB_dataset/TMDB_movie_dataset_v11.csv')
+        movie_df = load_and_clean_data(spark, '/TMDB_dataset/TMDB_movie_dataset_v11.csv') # 在 HDFS 上的路径
         movie_df = process_genres(spark, movie_df)
         movie_df = clean_titles_and_languages(movie_df)
         movie_df = process_categorical_features(movie_df)
