@@ -1,11 +1,8 @@
 import sys
 import io
 import json
-import pymongo
-from bson.binary import Binary
-import pickle
-from pyexpat import features
 
+from py4j.java_gateway import java_import
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
@@ -16,15 +13,16 @@ from pyspark.ml.feature import CountVectorizer
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-
 def create_spark_session(memory="4g"):
     """
     创建并返回SparkSession
     :param memory: 字符串，表示内存配置
+    :return: 返回一个SparkSession对象
     """
     return SparkSession.builder \
         .appName("MovieRecommendation") \
         .config("spark.driver.memory", memory) \
+        .config("spark.sql.shuffle.partitions", "200") \
         .getOrCreate()
 
 
@@ -33,7 +31,7 @@ def load_and_clean_data(spark, file_path):
     加载并清洗电影数据集
     :param spark: SparkSession对象
     :param file_path: 字符串，表示电影数据集的路径
-    :return: 返回一个 DataFrame，包含清洗后的电影数据集
+    :return: 返回一个DataFrame，包含清洗后的电影数据集
     """
     # 读取CSV文件
     movie_df = spark.read.csv(file_path, header=True, inferSchema=True)
@@ -83,7 +81,7 @@ def clean_titles_and_languages(movie_df):
     """
     清洗电影数据
     :param movie_df: DataFrame，包含电影数据
-    :return: 返回清洗后的 DataFrame
+    :return: 返回清洗后的DataFrame
     """
     # 清洗电影标题：去除空格、转为小写字母并去除所有空格
     movie_df = movie_df.withColumn('title', F.lower(F.trim(F.col('title'))).alias('title'))
@@ -177,21 +175,58 @@ def calculate_similarities(movie_df, target_id):
     return similarities
 
 
+def load_processed_data(spark, file_path):
+    """
+    加载处理后的数据
+    :param spark: SparkSession对象
+    :param file_path: 字符串，表示处理后的数据路径
+    :return: 返回处理后的DataFrame
+    """
+    return spark.read.parquet(file_path)
+
+
+def is_path_exists(spark, path):
+    """
+    检查 HDFS 路径是否存在
+    :param spark: SparkSession对象
+    :param path: 字符串，表示HDFS路径
+    :return: 布尔值，True表示路径存在，False表示不存在
+    """
+    # 获取Hadoop文件系统
+    sc = spark.sparkContext
+    java_import(sc._gateway.jvm, "org.apache.hadoop.fs.FileSystem")
+    java_import(sc._gateway.jvm, "org.apache.hadoop.fs.Path")
+
+    fs = sc._jvm.FileSystem.get(sc._jsc.hadoopConfiguration())
+    return fs.exists(sc._jvm.Path(path))
+
+
 def main():
+    """
+    主函数，执行数据加载、处理和计算相似度
+    """
     spark = create_spark_session()
 
     try:
-        # 获取命令行参数
-        movie_id = int(sys.argv[1]) if len(sys.argv) > 1 else 424
+        initial_dataset_path = '/TMDB_dataset/TMDB_movie_dataset_v11.csv'
+        processed_data_path = '/TMDB_dataset/processed_movie_data'
 
-        # 加载和处理数据
-        movie_df = load_and_clean_data(spark, '/TMDB_dataset/TMDB_movie_dataset_v11.csv') # 在 HDFS 上的路径
-        movie_df = process_genres(spark, movie_df)
-        movie_df = clean_titles_and_languages(movie_df)
-        movie_df = process_categorical_features(movie_df)
-        movie_df = normalize_features(movie_df)
+        if not is_path_exists(spark, processed_data_path):
+            # 加载和处理数据
+            movie_df = load_and_clean_data(spark, initial_dataset_path)  # 在 HDFS 上的路径
+            movie_df = process_genres(spark, movie_df)
+            movie_df = clean_titles_and_languages(movie_df)
+            movie_df = process_categorical_features(movie_df)
+            movie_df = normalize_features(movie_df)
+
+            # 保存处理后的数据
+            movie_df.write.mode("overwrite").parquet(processed_data_path)
+        else:
+            # 加载处理后的数据
+            movie_df = load_processed_data(spark, processed_data_path)
 
         # 获取推荐
+        movie_id = int(sys.argv[1]) if len(sys.argv) > 1 else 424 # 获取命令行参数
         recommendations = calculate_similarities(movie_df, movie_id)
 
         # 转换结果为JSON格式
