@@ -16,7 +16,6 @@ from pyspark.ml.feature import CountVectorizer
 # 设置标准输出的编码格式为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-
 app = Flask(__name__)
 
 
@@ -29,7 +28,7 @@ def create_spark_session(memory="16g", max_executors=10):
     :return: 返回一个SparkSession对象，用于执行Spark作业。
     """
     return SparkSession.builder \
-        .appName("MovieRecommendation") \
+        .appName("ContentBasedMovieRecommendation") \
         .config("spark.driver.memory", memory) \
         .config("spark.executor.memory", memory) \
         .config("spark.executor.memoryOverhead", "2g") \
@@ -41,7 +40,24 @@ def create_spark_session(memory="16g", max_executors=10):
         .config("spark.sql.parquet.compression.codec", "snappy") \
         .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35") \
         .config("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35") \
+        .enableHiveSupport() \
         .getOrCreate()
+
+
+def load_csv_to_hive(spark, file_path, table_name):
+    """
+    从 CSV 文件加载数据到 Hive 表中
+
+    :param spark: SparkSession对象。
+    :param file_path: 字符串，表示 CSV 文件路径。
+    :param table_name: 字符串，表示 Hive 表名。
+    :return: 无。
+    """
+    # 读取 CSV 文件
+    df = spark.read.csv(file_path, header=True, inferSchema=True)
+
+    # 将数据保存到 Hive 表中
+    df.write.mode("overwrite").saveAsTable(table_name)
 
 
 def load_and_clean_data(spark, file_path):
@@ -207,10 +223,14 @@ def is_path_exists(spark, path):
     fs = sc._jvm.FileSystem.get(sc._jsc.hadoopConfiguration())
     return fs.exists(sc._jvm.Path(path))
 
+
 @app.route('/api/recommendation/<int:movie_id>', methods=['GET'])
 def main(movie_id):
     """
     主函数，执行数据加载、处理和相似度计算流程
+
+    :param movie_id: 整数，表示目标电影的 ID。
+    :return: JSON 格式的推荐结果。
     """
     spark = create_spark_session()
     try:
@@ -248,4 +268,4 @@ def main(movie_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=6000)  # 启动服务，监听在所有接口上，端口6000
+    app.run(debug=True, host='localhost', port=6000)  # 启动服务，监听在所有接口上，端口6000

@@ -9,12 +9,18 @@ const fetchFromTMDB = async (url) => {
     }
   };
 
-  const response = await axios.get(url, options);
+  try {
+    const response = await axios.get(url, options);
 
-  if (response.status !== 200) {
-    throw new Error(`Error in fetchFromTMDB - tmdb: ${response.statusText}`);
-  } else {
-    return response.data;
+    if (response.status !== 200) {
+      console.log(`Error in fetchFromTMDB - tmdb: ${response.statusText}`);
+      return null;
+    } else {
+      return response.data;
+    }
+  } catch (error) {
+    console.log(`Error in fetchFromTMDB - tmdb: ${error.message}`);
+    return null;
   }
 }
 

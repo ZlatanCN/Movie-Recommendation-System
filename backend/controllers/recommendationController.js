@@ -1,4 +1,3 @@
-import { PythonShell } from 'python-shell'
 import chalk from 'chalk'
 import fetchFromTMDB from '../config/tmdb.js'
 import axios from 'axios'
@@ -11,7 +10,6 @@ const recommendContentBased = async (req, res) => {
       `http://localhost:6000/api/recommendation/${id}`)
 
     if (response.data.isSuccessful) {
-      console.log(response.data.content)
       const movieEntries = Object.entries(response.data.content)
       const structuredData = await Promise.all(
         movieEntries.map(
@@ -19,12 +17,14 @@ const recommendContentBased = async (req, res) => {
             const movieDetails = await fetchFromTMDB(
               `https://api.themoviedb.org/3/movie/${id}`)
 
-            return {
-              id: movieDetails.id,
-              title: movieDetails.title || movieDetails.original_title ||
-                movieDetails.name,
-              poster_path: movieDetails.poster_path,
-              similarity: similarity,
+            if (movieDetails != null) {
+              return {
+                id: movieDetails.id,
+                title: movieDetails.title || movieDetails.original_title ||
+                  movieDetails.name,
+                poster_path: movieDetails.poster_path,
+                similarity: similarity,
+              }
             }
           },
         ),

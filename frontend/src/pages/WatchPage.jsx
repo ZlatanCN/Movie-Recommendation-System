@@ -1,82 +1,64 @@
-import { Link, useParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import NavBar from '../components/NavBar.jsx';
+import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
+import NavBar from '../components/NavBar.jsx'
 import {
   LeftOutlined,
-  LoadingOutlined,
   RightOutlined,
   StarOutlined,
-} from '@ant-design/icons';
-import ReactPlayer from 'react-player';
-import {
-  ORIGINAL_IMG_BASE_URL,
-  SMALL_IMG_BASE_URL,
-} from '../utils/constants.js';
-import { motion } from 'framer-motion';
-import useWatch from '../hooks/useWatch.jsx';
-import formatDate from '../utils/formatDate.js';
-import LoadingSpin from '../components/LoadingSpin.jsx';
-import { ConfigProvider, Modal, Rate } from 'antd';
-import { rateModalTheme } from '../theme/modalTheme.js';
-import RatingModal from '../components/RatingModal.jsx';
+} from '@ant-design/icons'
+import ReactPlayer from 'react-player'
+import { ORIGINAL_IMG_BASE_URL } from '../utils/constants.js'
+import { motion } from 'framer-motion'
+import useWatch from '../hooks/useWatch.jsx'
+import formatDate from '../utils/formatDate.js'
+import LoadingSpin from '../components/LoadingSpin.jsx'
+import { Rate } from 'antd'
+import RatingModal from '../components/RatingModal.jsx'
+import SimilarMovies from '../components/SimilarMovies.jsx'
 
 const WatchPage = () => {
-  const { id } = useParams();
-  const { trailers, content, similarContent, isLoading } = useWatch(id);
-  const [currentTrailerIndex, setCurrentTrailerIndex] = useState(0);
-  const sliderRef = useRef(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { id } = useParams()
+  const { trailers, content, isLoading } = useWatch(id)
+  const [currentTrailerIndex, setCurrentTrailerIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const showModal = () => {
-    setIsModalOpen(true);
-  };
+    setIsModalOpen(true)
+  }
 
   const rateMovie = async (id, rating) => {
     try {
-      const response = await axios.post(`/api/rating/${id}`, { rating });
+      const response = await axios.post(`/api/rating/${id}`, { rating })
       if (!response.data.isSuccessful) {
-        throw new Error('Failed to update rating!');
+        throw new Error('Failed to update rating!')
       }
     } catch (error) {
-      console.error(error);
+      console.error(error)
     }
   }
 
   const handleDirection = (direction) => {
     if (direction === 'left') {
       if (currentTrailerIndex > 0) {
-        setCurrentTrailerIndex(currentTrailerIndex - 1);
+        setCurrentTrailerIndex(currentTrailerIndex - 1)
       }
     } else if (direction === 'right') {
       if (currentTrailerIndex < trailers.length - 1) {
-        setCurrentTrailerIndex(currentTrailerIndex + 1);
+        setCurrentTrailerIndex(currentTrailerIndex + 1)
       }
     }
-  };
-
-  const scrollX = (direction) => {
-    if (sliderRef.current) {
-      const distance = -sliderRef.current.offsetWidth;
-      if (direction === 'left') {
-        sliderRef.current.scrollBy({ left: distance, behavior: 'smooth' });
-      } else if (direction === 'right') {
-        sliderRef.current.scrollBy({ left: -distance, behavior: 'smooth' });
-      }
-    }
-  };
+  }
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setCurrentTrailerIndex(0);
-    sliderRef.current &&
-    sliderRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-  }, [id]);
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setCurrentTrailerIndex(0)
+  }, [id])
 
   if (isLoading == null) {
     return (
       <LoadingSpin/>
-    );
+    )
   }
 
   return (
@@ -209,54 +191,12 @@ const WatchPage = () => {
             </section>
 
             {/* Similar Movies */}
-            {similarContent.length > 0 && (
-              <section className={'mt-12 max-w-5xl mx-auto relative'}>
-                <h3 className={'text-3xl font-bold mb-4'}>
-                  Similar Movies
-                </h3>
-                <div
-                  className={'flex overflow-x-scroll scrollbar-hide gap-4 pb-4 group'}
-                  ref={sliderRef}>
-                  {similarContent.map((content) => {
-                    if (!content?.poster_path) return null;
-                    return (
-                      <Link
-                        key={content.score}
-                        to={`/watch/${content.id}`}
-                        className={'w-52 flex-none'}
-                      >
-                        <img
-                          src={SMALL_IMG_BASE_URL + content?.poster_path}
-                          alt={content.title}
-                          className={'w-full h-auto rounded-md'}
-                        />
-                        <h4 className={'mt-2 text-lg font-semibold'}>
-                          {content.title}
-                        </h4>
-                      </Link>
-                    );
-                  })}
-
-                  <motion.button
-                    onClick={scrollX.bind(this, 'left')}
-                    whileTap={{ opacity: 0.5 }}
-                    className={'absolute top-[45%] -translate-y-1/2 -left-16 flex items-center justify-center size-12 rounded-full bg-gray-800 bg-opacity-50 hover:bg-opacity-60 text-white z-10 hover:bg-red-600'}>
-                    <LeftOutlined/>
-                  </motion.button>
-                  <motion.button
-                    onClick={scrollX.bind(this, 'right')}
-                    whileTap={{ opacity: 0.5 }}
-                    className={'absolute top-[45%] -translate-y-1/2 -right-16 flex items-center justify-center size-12 rounded-full bg-gray-800 bg-opacity-50 hover:bg-opacity-60 text-white z-10 hover:bg-red-600'}>
-                    <RightOutlined/>
-                  </motion.button>
-                </div>
-              </section>
-            )}
+            <SimilarMovies movieId={id}/>
           </div>
         </div>
       )}
     </>
-  );
-};
+  )
+}
 
-export default WatchPage;
+export default WatchPage

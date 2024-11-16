@@ -101,7 +101,7 @@ const RatingPage = () => {
             disabled={currentPage === 1}
             className={`bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-red-700 ${currentPage === 1 ? 'cursor-not-allowed opacity-50' : 'opacity-70'}`}
           >
-            Previous
+            Prev
           </button>
           <button
             onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
