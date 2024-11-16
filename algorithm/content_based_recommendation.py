@@ -40,7 +40,6 @@ def create_spark_session(memory="16g", max_executors=10):
         .config("spark.sql.parquet.compression.codec", "snappy") \
         .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35") \
         .config("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35") \
-        .enableHiveSupport() \
         .getOrCreate()
 
 
