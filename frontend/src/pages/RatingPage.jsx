@@ -94,7 +94,7 @@ const RatingPage = () => {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className={'absolute bottom-0 left-0 right-0 bg-black py-4 flex justify-between px-4'}
+          className={'absolute -bottom-10 left-0 right-0 bg-black py-4 flex justify-between px-4'}
         >
           <button
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}

@@ -19,7 +19,7 @@ const useSimilarMovies = (movieId) => {
 
     try {
       setIsLoading(true)
-      const response = await axios.get(`/api/recommendation/${movieId}`)
+      const response = await axios.get(`/api/recommendation/content/${movieId}`)
       setSimilarMovies(response.data.content)
     } catch (error) {
       setSimilarMovies([])
