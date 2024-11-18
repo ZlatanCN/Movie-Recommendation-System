@@ -485,7 +485,7 @@ def collaborative_filtering(user_id):
             .option("dbtable", table_name) \
             .option("user", mysql_user) \
             .option("password", mysql_password) \
-            .option("fetchsize", "10000") \
+            .option("fetchsize", "50000") \
             .option("useCompression", "true") \
             .load()
 
