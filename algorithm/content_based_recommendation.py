@@ -3,8 +3,7 @@ import io
 import json
 
 from flask import jsonify, Flask
-from pyspark.ml.evaluation import RegressionEvaluator
-from pyspark.ml.recommendation import ALS
+from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql.functions import col, lit
 
 from py4j.java_gateway import java_import
@@ -242,188 +241,284 @@ def content_based_recommendation(movie_id):
 # 路由2: 基于协同过滤 (ALS) 的推荐功能
 @app.route('/api/recommendation/collaborative/<int:user_id>', methods=['GET'])
 def collaborative_filtering(user_id):
-    def create_spark_session(memory="8g", max_executors=10):
-        """
-        Create and return a SparkSession.
+    """
+    基于用户协同过滤的电影推荐功能。
+    此方法根据用户 ID，使用 ALS 模型生成电影推荐列表。
 
-        :param memory: A string representing the memory configuration for the driver, default is "16g".
-        :param max_executors: An integer representing the maximum number of executors for Spark jobs, default is 10.
-        :return: A SparkSession object for executing Spark jobs.
+    :param user_id: 用户 ID (整数类型)。
+    :return: 包含推荐结果的 JSON 响应。
+    """
+
+    def create_spark_session(memory="16g", max_executors=10):
+        """
+        创建并返回一个配置好的 SparkSession 实例。
+
+        :param memory: 分配给 Spark driver 和 executor 的内存大小，默认是 "16g"。
+        :param max_executors: Spark 动态分配的最大 executor 数量，默认是 10。
+        :return: 配置完成的 SparkSession 对象。
         """
         return SparkSession.builder \
             .appName("ALSMovieRecommendation") \
             .config("spark.driver.memory", memory) \
             .config("spark.executor.memory", memory) \
+            .config("spark.executor.instances", "20") \
+            .config("spark.executor.cores", "4") \
+            .config("spark.rdd.compress", "true") \
+            .config("spark.network.timeout", "1000s") \
+            .config("spark.sql.broadcastTimeout", "800") \
+            .config("spark.executor.heartbeatInterval", "100s") \
             .config("spark.dynamicAllocation.enabled", "true") \
             .config("spark.dynamicAllocation.maxExecutors", str(max_executors)) \
             .config("spark.sql.parquet.compression.codec", "snappy") \
+            .config("spark.memory.fraction", "0.8") \
+            .config("spark.memory.storageFraction", "0.3") \
             .getOrCreate()
 
     def load_and_clean_data(spark, file_path, sample_fraction=0.3):
         """
-        Load and clean the movie data.
-        :param sample_fraction: A float representing the fraction of the data to sample.
-        :param spark: A SparkSession object for interacting with Spark.
-        :param file_path: An array of strings representing the file paths of the movie and ratings data.
-        :return: A PySpark DataFrame containing the cleaned movie data.
-        """
+        加载并清洗评分数据和电影数据。
 
+        :param spark: SparkSession 对象。
+        :param file_path: 包含电影数据和评分数据的文件路径列表。
+        :param sample_fraction: 采样比例，默认是 0.3，代表只加载部分数据。
+        :return: 清洗后的评分数据 PySpark DataFrame。
+        """
+        # 加载电影数据和评分数据
         movies = spark.read.csv(file_path[0], header=True, inferSchema=True)
         ratings = spark.read.csv(file_path[1], header=True, inferSchema=True)
 
+        # 清理评分数据
         ratings = clean_ratings(ratings)
-        ratings = ratings.sample(fraction=sample_fraction, withReplacement=False)
 
-        # 从电影信息数据集中选择 'id' 和 'title' 列, 并将其与评分数据集进行内连接
+        # 从电影数据中选择 id 和 title 两列，并与评分数据按 tmdbId 进行内连接
         movies = movies.select("id", "title")
         ratings = ratings.join(movies, ratings.tmdbId == movies.id, "inner").drop("id")
 
         return ratings
 
-    def print_missing_values(data):
-        """
-        Print the number of missing values in each column of a DataFrame.
-
-        :param data: A PySpark DataFrame
-        :return: None
-        """
-
-        for column in data.columns:
-            print(column + ": " + str(data.filter(col(column).isNull()).count()))
-
-        print("\n")
-
     def clean_ratings(data):
         """
-        Drop the 'timestamp' and 'movieId' columns,
-        and remove rows with missing values in 'userId', 'tmdbId',
-        and 'rating' columns.
+        清理评分数据。
+        删除时间戳、movieId 列，并移除包含 null 值的记录。
 
-        :param data: A PySpark DataFrame
-        :return: A PySpark DataFrame
+        :param data: 原始的 PySpark DataFrame。
+        :return: 清理后的 PySpark DataFrame。
         """
-
-        # print("Number of missing values before drop and dropna: ")
-        # print_missing_values(data)
-
         data = data.drop('timestamp')
         data = data.drop('movieId')
         data = data.dropna()
-
-        # print("Number of missing values after drop and dropna: ")
-        # print_missing_values(data)
-
         return data
 
-    def train_model(data, spark):
+    def RMSE(predictions):
         """
-        Train an ALS model using the given data.
+        计算预测数据的均方根误差 (Root Mean Squared Error, RMSE)。
 
-        :param spark: A SparkSession object
-        :param data: A PySpark DataFrame
-        :return: A trained ALS model
+        :param predictions: 包含真实评分和预测评分的 PySpark DataFrame。
+        :return: 浮点数，表示 RMSE 值。
         """
+        # 过滤掉含有 null 值的记录
+        predictions = predictions.filter(col("rating").isNotNull() & col("prediction").isNotNull())
 
-        # 将数据集分为训练集和测试集
-        train, test = data.randomSplit([0.8, 0.2])
+        # 如果 predictions 数据为空，直接返回 0.0
+        if predictions.count() == 0:
+            return 0.0
 
-        # 使用 ALS 算法训练模型
-        als = ALS(maxIter=3, regParam=0.05, userCol="userId", itemCol="tmdbId", ratingCol="rating",
-                  coldStartStrategy="drop")
-        model = als.fit(train)
+        # 计算平方误差并取均值
+        squared_diff = predictions.withColumn("squared_diff", pow(col("rating") - col("prediction"), 2))
+        mse_row = squared_diff.selectExpr("mean(squared_diff) as mse").first()
+        mse = mse_row.mse if mse_row.mse is not None else 0.0
 
-        # 使用测试集评估模型
-        test_predictions = model.transform(test)
-        evaluate_model(test_predictions, spark)
+        # 返回 RMSE
+        return mse ** 0.5
 
-        return model
-
-    def evaluate_model(predictions, spark):
+    def train_model(data):
         """
-        Evaluate the model using RMSE, MSE, MAE, and R2 metrics.
+        训练 ALS 模型并返回最佳模型。
 
-        :param spark: A SparkSession object
-        :param predictions: A PySpark DataFrame
-        :return: None
+        :param data: PySpark DataFrame，包含评分数据。
+        :return: 训练完成的 ALS 模型。
         """
+        # 将数据随机分为训练集、验证集和测试集
+        train, validation, test = data.randomSplit([0.6, 0.2, 0.2], seed=0)
+        print("训练集、验证集、测试集的数据量分别为: {}, {}, {}".format(train.count(), validation.count(), test.count()))
 
-        evaluator_rmse = RegressionEvaluator(metricName="rmse", labelCol="rating", predictionCol="prediction")
-        rmse = evaluator_rmse.evaluate(predictions)
+        def grid_search(train, validation, num_iterations, reg_params, ranks):
+            """
+            使用网格搜索优化 ALS 模型。
 
-        evaluator_mse = RegressionEvaluator(metricName="mse", labelCol="rating", predictionCol="prediction")
-        mse = evaluator_mse.evaluate(predictions)
+            :param train: 训练集 PySpark DataFrame。
+            :param validation: 验证集 PySpark DataFrame。
+            :param num_iterations: ALS 迭代次数列表。
+            :param reg_params: 正则化参数列表。
+            :param ranks: 潜在因子数量列表。
+            :return: 最优的 ALS 模型。
+            """
+            min_error = float('inf')  # 最小 RMSE
+            best_model = None  # 最优模型
 
-        evaluator_mae = RegressionEvaluator(metricName="mae", labelCol="rating", predictionCol="prediction")
-        mae = evaluator_mae.evaluate(predictions)
+            for rank in ranks:
+                for reg in reg_params:
+                    als = ALS(
+                        rank=rank,
+                        maxIter=num_iterations,
+                        seed=0,
+                        regParam=reg,
+                        userCol="userId",
+                        itemCol="tmdbId",
+                        ratingCol="rating",
+                        coldStartStrategy="drop"
+                    )
+                    model = als.fit(train)
+                    predictions = model.transform(validation)
 
-        evaluator_r2 = RegressionEvaluator(metricName="r2", labelCol="rating", predictionCol="prediction")
-        r2 = evaluator_r2.evaluate(predictions)
+                    # 计算验证集的 RMSE
+                    rmse = RMSE(predictions)
+                    print(f'{rank} 个潜在因子, 正则化参数为 {reg}: 验证集 RMSE 为 {rmse}')
 
-        # Create a DataFrame containing all the metrics
-        schema = StructType([
-            StructField("Metric", StringType(), True),
-            StructField("Value", FloatType(), True)
-        ])
+                    if rmse < min_error:
+                        min_error = rmse
+                        best_model = model
 
-        metrics_df = spark.createDataFrame([
-            ("RMSE", rmse),
-            ("MSE", mse),
-            ("MAE", mae),
-            ("R2", r2)
-        ], schema)
+            print(f'\n最优模型潜在因子数: {rank}, 正则化参数: {reg}')
+            return best_model
 
-        # Display the results
-        metrics_df.show()
+        # 网格搜索参数
+        best_model = grid_search(
+            train,
+            validation,
+            num_iterations=10,
+            reg_params=[0.05, 0.1, 0.2, 0.4, 0.8],
+            ranks=[6, 8, 10, 12]
+        )
+
+        return best_model
 
     def predict_for_user(user_id, model, ratings, top_n=10):
         """
-        Make movie recommendations for a specific user.
+        为指定用户生成电影推荐列表。
 
-        :param user_id: An integer representing the user ID
-        :param model: A trained ALS model
-        :param ratings: A PySpark DataFrame containing the ratings data
-        :param top_n: An integer representing the number of recommendations to return
-        :return: A PySpark DataFrame containing the top N movie recommendations for the user
+        :param user_id: 用户 ID (整数)。
+        :param model: 已训练好的 ALS 模型。
+        :param ratings: PySpark DataFrame，包含评分数据。
+        :param top_n: 推荐的电影数量，默认为 10。
+        :return: 包含推荐电影的 PySpark DataFrame。
         """
 
-        # 获取所有物品的 tmdbId 和标题
-        all_items = ratings.select("tmdbId", "title").distinct()
+        def get_unrated_items(user_id, ratings):
+            """
+            获取指定用户未评分的电影。
+            :param user_id: 用户 ID。
+            :param ratings: PySpark DataFrame，包含评分数据。
+            :return: 包含未评分电影的 PySpark DataFrame。
+            """
+            rated_items = ratings.filter(col("userId") == user_id).select("tmdbId")
+            unrated_items = ratings.select("tmdbId", "title").distinct().join(
+                rated_items, "tmdbId", "left_anti"
+            )
+            return unrated_items
 
-        # 创建用户-物品对的 DataFrame，用户 ID 设置为指定的 user_id
-        user_item_pairs = all_items.withColumn("userId", lit(user_id))
+        def generate_user_item_pairs(user_id, unrated_items):
+            """
+            为指定用户生成所有未评分电影的用户-电影对。
+            :param user_id: 用户 ID。
+            :param unrated_items: 未评分电影的 PySpark DataFrame。
+            :return: 包含用户-电影对的 PySpark DataFrame。
+            """
+            user_df = spark.createDataFrame([(user_id,)], ["userId"])
+            user_item_pairs = user_df.crossJoin(unrated_items)
+            return user_item_pairs
 
-        # 进行预测
+        # 获取用户未评分的物品
+        unrated_items = get_unrated_items(user_id, ratings)
+
+        # 为用户生成用户-物品对
+        user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
+
+        # 分区处理以提高预测效率
+        user_item_pairs = user_item_pairs.repartition(100, "userId")
+
+        # 使用模型预测评分
         predictions = model.transform(user_item_pairs)
 
-        # 根据预测评分降序排列，取前 top_n 个推荐结果
-        top_predictions = predictions.orderBy(col("prediction").desc()).limit(top_n)
+        # 过滤掉无效预测并获取前 top_n 推荐
+        top_predictions = predictions.filter(col("prediction").isNotNull()) \
+            .orderBy(col("prediction").desc()) \
+            .limit(top_n)
 
-        # # 显示结果
-        # top_predictions.select("userId", "tmdbId", "title", "prediction").show()
-
+        # 根据预测评分降序排序并取前 top_n 个结果
         return top_predictions.select("userId", "tmdbId", "title", "prediction")
 
-    # 初始化 Spark 会话，配置更多的内存和其他相关参数
+    def is_model_exists(spark, path):
+        """
+        检查 ALS 模型是否存在于指定的路径中。
+
+        该函数通过 Spark 的 Hadoop 文件系统 API 检查指定路径是否存在，
+        以判断是否已经保存了训练好的 ALS 模型。
+
+        :param spark: SparkSession 对象，用于与 Spark 环境交互。
+        :param path: 字符串，表示保存 ALS 模型的路径。
+        :return: 布尔值，若模型存在返回 True，否则返回 False。
+        """
+        # 使用 Spark 的 JVM API 获取 Hadoop 文件系统的访问对象
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+        # 检查路径是否存在
+        return fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
+
+    def get_table_from_mysql(spark, table_name, mysql_url, mysql_user, mysql_password):
+        """
+        从 MySQL 数据库中读取指定表的数据，并返回 PySpark DataFrame。
+
+        通过 PySpark 的 JDBC 接口从 MySQL 数据库加载表数据，支持大规模数据读取，
+        并提供批量大小和并行性配置以优化性能。
+
+        :param spark: SparkSession 对象，用于与 Spark 环境交互。
+        :param table_name: 字符串，表示 MySQL 数据库中的表名。
+        :param mysql_url: 字符串，表示 MySQL 数据库的 JDBC URL。
+        :param mysql_user: 字符串，表示 MySQL 数据库的用户名。
+        :param mysql_password: 字符串，表示 MySQL 数据库的密码。
+        :return: PySpark DataFrame，包含从指定 MySQL 表中读取的数据。
+        """
+        # 使用 PySpark 的 read 方法通过 JDBC 接口读取 MySQL 表数据
+        data = spark.read \
+            .format("jdbc") \
+            .option("url", mysql_url) \
+            .option("dbtable", table_name) \
+            .option("user", mysql_user) \
+            .option("password", mysql_password) \
+            .option("fetchsize", "10000") \
+            .option("useCompression", "true") \
+            .load()
+
+        # 返回读取到的 DataFrame
+        return data
+
+    # 初始化 Spark 会话
     spark = create_spark_session()
 
-    # ratings_with_tmdbid.csv 是一个包含用户对电影的评分数据集，从 HDFS 中读取
-    # TMDB_movie_dataset_v11.csv 是一个包含电影信息的数据集，从 HDFS 中读取
+    # 配置数据路径
     ratings_path = "/TMDB_dataset/ratings_with_tmdbid.csv"
-    movies_path = "/TMDB_dataset/TMDB_movie_dataset_v11.csv"
+    model_path = "/TMDB_dataset/als_model"
 
     try:
-        # 加载和清洗数据
-        ratings = load_and_clean_data(spark, [movies_path, ratings_path])
+        # 从 MySQL 加载评分数据
+        mysql_url = "jdbc:mysql://localhost:3307/movie_recommendation"
+        mysql_user = "root"
+        mysql_password = "zhujiayou"
+        ratings = get_table_from_mysql(spark, "ratings", mysql_url, mysql_user, mysql_password)
 
-        # 训练 ALS 模型
-        model = train_model(ratings, spark)
+        # 检查模型是否存在
+        if is_model_exists(spark, model_path):
+            model = ALSModel.load(model_path)  # 加载现有模型
+        else:
+            model = train_model(ratings)  # 训练新模型
+            model.save(model_path)  # 保存模型
 
-        # 为用户 1 生成推荐结果
-        top_predictions = predict_for_user(1, model, ratings)
+        # 为指定用户生成推荐列表
+        top_predictions = predict_for_user(user_id, model, ratings)
 
-        # 将推荐结果转换为 JSON 格式并输出
+        # 转换为 JSON 格式
         top_predictions = {str(row.tmdbId): float(row.prediction) for row in top_predictions.collect()}
-        print(top_predictions)
+        print(json.dumps(top_predictions))
         return jsonify({
             "isSuccessful": True,
             "content": top_predictions
@@ -431,11 +526,7 @@ def collaborative_filtering(user_id):
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        return jsonify({
-            "isSuccessful": False,
-            "content": str(e)
-        })
-
+        return jsonify({"isSuccessful": False, "message": str(e)})
     finally:
         spark.stop()
 

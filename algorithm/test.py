@@ -3,6 +3,7 @@ import io
 import json
 import time
 import logging
+
 from flask import jsonify, Flask
 from mpmath import limit
 from pyspark.ml.recommendation import ALS, ALSModel
@@ -38,6 +39,9 @@ def collaborative_filtering(user_id):
             .appName("ALSMovieRecommendation") \
             .config("spark.driver.memory", memory) \
             .config("spark.executor.memory", memory) \
+            .config("spark.executor.instances", "20") \
+            .config("spark.executor.cores", "4") \
+            .config("spark.rdd.compress", "true") \
             .config("spark.network.timeout", "1000s") \
             .config("spark.sql.broadcastTimeout", "800") \
             .config("spark.executor.heartbeatInterval", "100s") \
@@ -212,31 +216,58 @@ def collaborative_filtering(user_id):
 
     def predict_for_user(user_id, model, ratings, top_n=10):
         """
-        Make movie recommendations for a specific user.
-
-        :param user_id: An integer representing the user ID
-        :param model: A trained ALS model
-        :param ratings: A PySpark DataFrame containing the ratings data
-        :param top_n: An integer representing the number of recommendations to return
-        :return: A PySpark DataFrame containing the top N movie recommendations for the user
+        为指定用户生成电影推荐列表。
         """
 
-        # 获取所有物品的 tmdbId 和标题
-        all_items = ratings.select("tmdbId", "title").distinct()
+        def get_unrated_items(user_id, ratings):
+            """
+            获取用户未评分的物品列表。
+            """
+            rated_items = ratings.filter(col("userId") == user_id).select("tmdbId")
+            unrated_items = ratings.select("tmdbId", "title").distinct().join(
+                rated_items, "tmdbId", "left_anti"
+            )
+            return unrated_items
 
-        # 创建用户-物品对的 DataFrame，用户 ID 设置为指定的 user_id
-        user_item_pairs = all_items.withColumn("userId", lit(user_id))
+        def generate_user_item_pairs(user_id, unrated_items):
+            """
+            为指定用户生成用户-物品对。
+            """
+            user_df = spark.createDataFrame([(user_id,)], ["userId"])
+            user_item_pairs = user_df.crossJoin(unrated_items)
+            return user_item_pairs
 
-        # 进行预测
+
+        # 获取用户未评分的物品
+        get_unrated_time = time.time()
+        unrated_items = get_unrated_items(user_id, ratings)
+        print("Unrated items retrieved successfully. Time taken: {:.2f} seconds".format(time.time() - get_unrated_time))
+
+        # 为用户生成用户-物品对
+        generate_pairs_time = time.time()
+        user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
+        print("User-item pairs generated successfully. Time taken: {:.2f} seconds".format(time.time() - generate_pairs_time))
+
+        # 分区处理以提高预测效率
+        repartition_time = time.time()
+        user_item_pairs = user_item_pairs.repartition(100, "userId")
+        print("Data repartitioned successfully. Time taken: {:.2f} seconds".format(time.time() - repartition_time))
+
+        # 使用模型进行预测
+        transform_time = time.time()
         predictions = model.transform(user_item_pairs)
+        print("Predictions generated successfully. Time taken: {:.2f} seconds".format(time.time() - transform_time))
 
-        # 根据预测评分降序排列，取前 top_n 个推荐结果
-        top_predictions = predictions.orderBy(col("prediction").desc()).limit(top_n)
+        # 过滤掉无效预测并获取前 top_n 推荐
+        filter_time = time.time()
+        top_predictions = predictions.filter(col("prediction").isNotNull()) \
+            .orderBy(col("prediction").desc()) \
+            .limit(top_n)
+        print("Top predictions filtered successfully. Time taken: {:.2f} seconds".format(time.time() - filter_time))
 
-        # # 显示结果
-        # top_predictions.select("userId", "tmdbId", "title", "prediction").show()
-
+        # 返回最终推荐结果
         return top_predictions.select("userId", "tmdbId", "title", "prediction")
+
 
     def save_to_mysql(df, table_name, mysql_url, mysql_user, mysql_password):
         """
@@ -279,8 +310,7 @@ def collaborative_filtering(user_id):
             .option("user", mysql_user) \
             .option("password", mysql_password) \
             .option("fetchsize", "10000") \
-            .load() \
-            .limit(500000)
+            .load()
 
         return data
 
@@ -326,7 +356,7 @@ def collaborative_filtering(user_id):
     # TMDB_movie_dataset_v11.csv 是一个包含电影信息的数据集，从 HDFS 中读取
     ratings_path = "/TMDB_dataset/ratings_with_tmdbid.csv"
     movies_path = "/TMDB_dataset/TMDB_movie_dataset_v11.csv"
-    model_path = "/TMDB_dataset/als.model"
+    model_path = "/TMDB_dataset/als_model"
 
     try:
         # 加载和清洗数据
@@ -340,23 +370,29 @@ def collaborative_filtering(user_id):
 
         # print("Data saved to MySQL successfully.")
 
+        load_data_time = time.time()
         ratings = get_table_from_mysql(spark, "ratings", mysql_url, mysql_user, mysql_password)
+        print("Data loaded from MySQL successfully. Time taken: {:.2f} seconds".format(time.time() - load_data_time))
 
         if is_model_exists(spark, model_path):
             model = ALSModel.load(model_path)
             logger.info("Model loaded successfully.")
         else:
-            # 采样并分区
+            # 对数据进行分区和缓存
             ratings = ratings.repartition(50).cache()
             # 训练 ALS 模型
             model = train_model(ratings)
             logger.info("Model training completed successfully.")
             # 保存模型
             model.save(model_path)
+            logger.info("Model saved successfully.")
 
         #
         # 为用户 1 生成推荐结果
+
+        predict_time = time.time()
         top_predictions = predict_for_user(1, model, ratings)
+        print("Recommendations generated successfully. Time taken: {:.2f} seconds".format(time.time() - predict_time))
         top_predictions.show()
 
         logger.info("Recommendations generated successfully.")
