@@ -1,30 +1,29 @@
-import PropTypes from 'prop-types';
-import NavBar from '../components/NavBar.jsx';
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { LeftOutlined, LoadingOutlined, MailOutlined } from '@ant-design/icons';
-import { Input, message } from 'antd';
-import useAuthStore from '../store/authStore.js';
-import { Link } from 'react-router-dom';
+import NavBar from '../components/NavBar.jsx'
+import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { LeftOutlined, LoadingOutlined, MailOutlined } from '@ant-design/icons'
+import { Input, message } from 'antd'
+import useAuthStore from '../store/authStore.js'
+import { Link } from 'react-router-dom'
 
-const ForgotPasswordPage = (props) => {
-  const [messageApi, contextHolder] = message.useMessage();
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [email, setEmail] = useState('');
-  const { isLoading, forgotPassword } = useAuthStore();
+const ForgotPasswordPage = () => {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [email, setEmail] = useState('')
+  const { isLoading, forgotPassword } = useAuthStore()
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    await forgotPassword(email)
-    .then(() => setHasSubmitted(true))
-    .catch((error) => {
-      messageApi.error({
-        content: error.response.data.message || 'Error in sending email!',
-        className: 'text-gray-300 font-bold font-mono mt-20 text-[16px]',
+    e.preventDefault()
+    await forgotPassword(email).
+      then(() => setHasSubmitted(true)).
+      catch((error) => {
+        messageApi.error({
+          content: error.response.data.message || 'Error in sending email!',
+          className: 'text-gray-300 font-bold font-mono mt-20 text-[16px]',
+        })
+        console.log(error.response.data)
       })
-      console.log(error.response.data);
-    })
-  };
+  }
 
   return (
     <div className={'h-screen w-full hero-bg bg-center'}>
@@ -51,7 +50,8 @@ const ForgotPasswordPage = (props) => {
             {!hasSubmitted ? (
               <form onSubmit={handleSubmit} className={'flex flex-col gap-6 '}>
                 <p className={'text-gray-300 text-center'}>
-                  Enter your email address and we'll send you a link to reset
+                  Enter your email address and we&#39;ll send you a link to
+                  reset
                   your password.
                 </p>
                 <Input
@@ -83,26 +83,25 @@ const ForgotPasswordPage = (props) => {
                   <MailOutlined className={'text-red-600 text-3xl'}/>
                 </motion.div>
                 <p className={'text-gray-300'}>
-                  If an account exists for {email}, you will receive a password reset link shortly.
+                  If an account exists for {email}, you will receive a password
+                  reset link shortly.
                 </p>
               </section>
             )}
           </div>
 
-          <footer className={'px-8 py-4 bg-gray-800 bg-opacity-50 flex justify-center'}>
-            <Link to={'/login'} className={'text-sm text-red-500 hover:underline flex gap-1'}>
-              <LeftOutlined />
+          <footer
+            className={'px-8 py-4 bg-gray-800 bg-opacity-50 flex justify-center'}>
+            <Link to={'/login'}
+                  className={'text-sm text-red-500 hover:underline flex gap-1'}>
+              <LeftOutlined/>
               <span>Back to Login</span>
             </Link>
           </footer>
         </motion.div>
       </section>
     </div>
-  );
-};
+  )
+}
 
-ForgotPasswordPage.propTypes = {
-  isLoading: PropTypes.bool,
-};
-
-export default ForgotPasswordPage;
+export default ForgotPasswordPage

@@ -56,6 +56,9 @@ const NavBar = (props) => {
               <Link to={'/rating'} className={'hover:underline font-semibold'}>
                 Rating
               </Link>
+              <Link to={'/recommendation'} className={'hover:underline font-semibold'}>
+                Recommendation
+              </Link>
               <Link to={'/history'} className={'hover:underline font-semibold'}>
                 History
               </Link>

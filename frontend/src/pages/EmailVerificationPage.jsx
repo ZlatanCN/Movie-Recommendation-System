@@ -1,17 +1,17 @@
-import { Input, message } from 'antd';
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import useAuthStore from '../store/authStore.js';
-import { useNavigate } from 'react-router-dom';
+import { Input, message } from 'antd'
+import { motion } from 'framer-motion'
+import { useState } from 'react'
+import useAuthStore from '../store/authStore.js'
+import { useNavigate } from 'react-router-dom'
 
 const EmailVerificationPage = () => {
-  const [verificationCode, setVerificationCode] = useState('');
-  const [messageApi, contextHolder] = message.useMessage();
-  const { isLoading, verifyEmail } = useAuthStore();
-  const navigate = useNavigate();
+  const [verificationCode, setVerificationCode] = useState('')
+  const [messageApi, contextHolder] = message.useMessage()
+  const { verifyEmail } = useAuthStore()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
 
     try {
       await verifyEmail(verificationCode).then(() => {
@@ -19,17 +19,17 @@ const EmailVerificationPage = () => {
           content: 'Welcome to the community!',
           className: 'text-gray-300 font-bold font-mono mt-20 text-[16px]',
           duration: 2,
-        });
-        setTimeout(() => navigate('/'), 2000);
+        })
+        setTimeout(() => navigate('/'), 2000)
       })
     } catch (error) {
       messageApi.error({
         content: 'Invalid Code',
         className: 'text-gray-300 font-bold font-mono mt-20 text-[16px]',
-      });
-      console.error(error);
+      })
+      console.error(error)
     }
-  };
+  }
 
   return (
     <div className={'h-screen w-full hero-bg bg-center'}>
@@ -73,7 +73,7 @@ const EmailVerificationPage = () => {
         </motion.div>
       </section>
     </div>
-  );
-};
+  )
+}
 
-export default EmailVerificationPage;
+export default EmailVerificationPage
