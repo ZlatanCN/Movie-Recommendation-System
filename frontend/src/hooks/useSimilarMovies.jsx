@@ -1,9 +1,9 @@
-import axios from 'axios'
-import { useEffect, useRef, useState } from 'react'
+import axios from 'axios';
+import { useEffect, useRef, useState } from 'react';
 
 const useSimilarMovies = (movieId) => {
-  const [similarMovies, setSimilarMovies] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [similarMovies, setSimilarMovies] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const sliderRef = useRef(null);
 
   const getSimilarMovies = async () => {
@@ -18,24 +18,24 @@ const useSimilarMovies = (movieId) => {
     // }
 
     try {
-      setIsLoading(true)
-      const response = await axios.get(`/api/recommendation/content/${movieId}`)
-      setSimilarMovies(response.data.content)
+      setIsLoading(true);
+      const response = await axios.get(`/api/recommendation/content/${movieId}`);
+      setSimilarMovies(response.data.content);
     } catch (error) {
-      setSimilarMovies([])
-      console.log(`Error in getSimilarMovies - WatchPage: ${error.message}`)
+      setSimilarMovies([]);
+      console.log(`Error in getSimilarMovies - WatchPage: ${error.message}`);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    getSimilarMovies()
+    getSimilarMovies();
     sliderRef.current &&
     sliderRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-  }, [movieId])
+  }, [movieId]);
 
-  return { similarMovies, sliderRef, isLoading }
-}
+  return { similarMovies, sliderRef, isLoading };
+};
 
-export default useSimilarMovies
+export default useSimilarMovies;

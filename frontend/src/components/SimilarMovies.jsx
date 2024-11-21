@@ -25,8 +25,6 @@ const SimilarMovies = (props) => {
     }
   }
 
-  console.log(isLoading)
-
   return (
     <section className={'mt-12 max-w-5xl mx-auto relative'}>
       <h3 className={'text-3xl font-bold mb-4'}>
@@ -46,7 +44,7 @@ const SimilarMovies = (props) => {
               if (!content?.poster_path) return null
               return (
                 <Link
-                  key={content.score}
+                  key={content.id}
                   to={`/watch/${content.id}`}
                   className={'w-52 flex-none'}
                 >

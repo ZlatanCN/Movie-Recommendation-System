@@ -1,22 +1,12 @@
-import sys
 import io
-import json
-import time
 import logging
 
-from flask import jsonify, Flask
-from mpmath import limit
+import sys
+import time
 from pyspark.ml.recommendation import ALS, ALSModel
-from pyspark.sql.functions import col, lit
-
-from py4j.java_gateway import java_import
 from pyspark.sql import SparkSession
-from pyspark.sql import functions as F
-from pyspark.sql.types import *
-from pyspark.ml.feature import StandardScaler, OneHotEncoder, StringIndexer, VectorAssembler
-from pyspark.ml import Pipeline
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.feature import CountVectorizer
+from pyspark.sql.functions import col, udf, explode, sum, broadcast
+from pyspark.sql.types import FloatType, ArrayType
 
 # 设置标准输出的编码格式为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -224,7 +214,7 @@ def collaborative_filtering(user_id):
             获取用户未评分的物品列表。
             """
             rated_items = ratings.filter(col("userId") == user_id).select("tmdbId")
-            unrated_items = ratings.select("tmdbId", "title").distinct().join(
+            unrated_items = ratings.select("tmdbId").distinct().join(
                 rated_items, "tmdbId", "left_anti"
             )
             return unrated_items
@@ -237,42 +227,78 @@ def collaborative_filtering(user_id):
             user_item_pairs = user_df.crossJoin(unrated_items)
             return user_item_pairs
 
+        def calculate_user_preference(new_user_ratings, item_factors, rating_min=0.0, rating_max=5.0):
+            """
+            计算用户对所有电影的评分偏好。
+            :param item_factors: 包含物品因子的 PySpark DataFrame。
+            :param new_user_ratings: 包含新用户评分的 PySpark DataFrame。
+            :return: 包含用户评分偏好的 PySpark DataFrame。
+            """
+            to_float_array = udf(lambda x: [float(i) for i in x], ArrayType(FloatType()))
+
+            item_factors_broadcast = broadcast(item_factors)
+
+            normalized_ratings = new_user_ratings.withColumn(
+                "normalized_rating",
+                (col("rating") - rating_min) / (rating_max - rating_min)
+            )
+
+            user_preference = (normalized_ratings
+                               .join(item_factors_broadcast, normalized_ratings.tmdbId == item_factors.id, "inner")
+                               .withColumn("features", to_float_array(col("features")))
+                               .withColumn("feature", explode(col("features")))
+                               .withColumn("weighted_feature", col("normalized_rating") * col("feature"))
+                               .groupBy("userId", "tmdbId")
+                               .agg(sum("weighted_feature").alias("preference")))
+
+            return user_preference
 
         # 获取用户未评分的物品
-        get_unrated_time = time.time()
         unrated_items = get_unrated_items(user_id, ratings)
-        print("Unrated items retrieved successfully. Time taken: {:.2f} seconds".format(time.time() - get_unrated_time))
 
-        # 为用户生成用户-物品对
-        generate_pairs_time = time.time()
-        user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
-        print("User-item pairs generated successfully. Time taken: {:.2f} seconds".format(time.time() - generate_pairs_time))
+        # 检查用户在不在模型中
+        user_factors_count = model.userFactors.filter(col("id") == user_id).count()
+        logger.info("User factors count: %d", user_factors_count)
+        if user_factors_count != 0:
+            # 用户已经在模型中，直接预测
+            # 为用户生成用户-物品对
+            user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
 
-        # 分区处理以提高预测效率
-        repartition_time = time.time()
-        user_item_pairs = user_item_pairs.repartition(100, "userId")
-        print("Data repartitioned successfully. Time taken: {:.2f} seconds".format(time.time() - repartition_time))
+            # 分区处理以提高预测效率
+            user_item_pairs = user_item_pairs.repartition(100, "userId")
 
-        # 使用模型进行预测
-        transform_time = time.time()
-        predictions = model.transform(user_item_pairs)
-        print("Predictions generated successfully. Time taken: {:.2f} seconds".format(time.time() - transform_time))
+            # 使用模型预测评分
+            predictions = model.transform(user_item_pairs)
 
-        # 过滤掉无效预测并获取前 top_n 推荐
-        filter_time = time.time()
-        top_predictions = predictions.filter(col("prediction").isNotNull()) \
-            .orderBy(col("prediction").desc()) \
-            .limit(top_n)
-        print("Top predictions filtered successfully. Time taken: {:.2f} seconds".format(time.time() - filter_time))
+            # 过滤掉无效预测并获取前 top_n 推荐
+            top_predictions = predictions.filter(col("prediction").isNotNull()) \
+                .orderBy(col("prediction").desc()) \
+                .limit(top_n)
 
-        # 返回最终推荐结果
-        return top_predictions.select("userId", "tmdbId", "title", "prediction")
+            # 根据预测评分降序排序并取前 top_n 个结果
+            return top_predictions.select("userId", "tmdbId", "prediction")
+        else:
+            item_factors = model.itemFactors
+            item_factors_broadcast = broadcast(item_factors)
+            new_user_ratings = ratings.filter(col("userId") == user_id)
+            user_preference = calculate_user_preference(new_user_ratings, item_factors)
 
+            exploded_item_factors = item_factors_broadcast.withColumn("feature", explode(col("features"))) \
+                .groupBy("id").agg(sum("feature").alias("weighted_feature"))
+
+            sum_of_user_preference = user_preference.agg(sum("preference")).collect()[0][0]
+
+            final_items = unrated_items.join(exploded_item_factors, unrated_items.tmdbId == exploded_item_factors.id,
+                                             "inner") \
+                .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
+                .orderBy(col("prediction").desc()).limit(top_n)
+
+            return final_items
 
     def save_to_mysql(df, table_name, mysql_url, mysql_user, mysql_password):
         """
         Save the ratings data to a MySQL database.
-        :param df: A PySpark DataFrame containing the ratings data.
+        :param df: A PySpark DataFrame containing the ratings' data.
         :param table_name: A string representing the name of the table in the MySQL database.
         :param mysql_url: A string representing the URL of the MySQL database.
         :param mysql_user: A string representing the username of the MySQL database.
@@ -363,8 +389,8 @@ def collaborative_filtering(user_id):
         # ratings = load_and_clean_data(spark, [movies_path, ratings_path])
 
         # 存储到 MySQL
-        mysql_url = "jdbc:mysql://localhost:3307/movie_recommendation"
-        mysql_user = "root"
+        mysql_url = "jdbc:mysql://192.168.123.199:3306/movie_recommendation"
+        mysql_user = "wsl_root"
         mysql_password = "zhujiayou"
         # save_to_mysql(ratings, "ratings", mysql_url, mysql_user, mysql_password)
 
@@ -391,7 +417,7 @@ def collaborative_filtering(user_id):
         # 为用户 1 生成推荐结果
 
         predict_time = time.time()
-        top_predictions = predict_for_user(1, model, ratings)
+        top_predictions = predict_for_user(user_id, model, ratings)
         print("Recommendations generated successfully. Time taken: {:.2f} seconds".format(time.time() - predict_time))
         top_predictions.show()
 
@@ -414,4 +440,4 @@ def collaborative_filtering(user_id):
 
 
 if __name__ == '__main__':
-    collaborative_filtering(1)
+    collaborative_filtering(174799145)

@@ -29,7 +29,7 @@ const MovieRating = (props) => {
         {/*Movie Rating*/}
         <div className={'flex flex-col justify-center items-center mr-16'}>
           <p className={'text-white text-4xl font-semibold'}>
-            {props.movie.rating} / 5
+            {props.movie.rating * 2} / 10
           </p>
           <Rate
             allowHalf

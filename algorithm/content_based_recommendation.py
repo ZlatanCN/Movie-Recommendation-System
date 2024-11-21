@@ -1,19 +1,18 @@
-import sys
 import io
 import json
 
+import sys
 from flask import jsonify, Flask
-from pyspark.ml.recommendation import ALS, ALSModel
-from pyspark.sql.functions import col, lit
-
 from py4j.java_gateway import java_import
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import CountVectorizer
+from pyspark.ml.feature import StandardScaler, OneHotEncoder, StringIndexer, VectorAssembler
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import *
-from pyspark.ml.feature import StandardScaler, OneHotEncoder, StringIndexer, VectorAssembler
-from pyspark.ml import Pipeline
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.feature import CountVectorizer
+from pyspark.sql.functions import col, udf, explode, sum, broadcast
+from pyspark.sql.types import FloatType, ArrayType
 
 # 设置标准输出的编码格式为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -290,8 +289,8 @@ def collaborative_filtering(user_id):
         # 清理评分数据
         ratings = clean_ratings(ratings)
 
-        # 从电影数据中选择 id 和 title 两列，并与评分数据按 tmdbId 进行内连接
-        movies = movies.select("id", "title")
+        # 从电影数据中选择 id 列，并与评分数据按 tmdbId 进行内连接
+        movies = movies.select("id")
         ratings = ratings.join(movies, ratings.tmdbId == movies.id, "inner").drop("id")
 
         return ratings
@@ -412,7 +411,7 @@ def collaborative_filtering(user_id):
             :return: 包含未评分电影的 PySpark DataFrame。
             """
             rated_items = ratings.filter(col("userId") == user_id).select("tmdbId")
-            unrated_items = ratings.select("tmdbId", "title").distinct().join(
+            unrated_items = ratings.select("tmdbId").distinct().join(
                 rated_items, "tmdbId", "left_anti"
             )
             return unrated_items
@@ -428,25 +427,87 @@ def collaborative_filtering(user_id):
             user_item_pairs = user_df.crossJoin(unrated_items)
             return user_item_pairs
 
+        def calculate_user_preference(new_user_ratings, item_factors, rating_min=0.0, rating_max=5.0):
+            """
+            计算用户偏好。
+            :param new_user_ratings: 包含新用户评分的 PySpark DataFrame。
+            :param item_factors: 包含物品因子的 PySpark DataFrame。
+            :param rating_min: 归一化评分的最小值。
+            :param rating_max: 归一化评分的最大值。
+            :return: 用户偏好的 PySpark DataFrame。
+            """
+            # 定义 UDF 将字符串转换为浮点数数组
+            to_float_array = udf(lambda x: [float(i) for i in x], ArrayType(FloatType()))
+
+            # 物品特征矩阵
+            item_factors_broadcast = broadcast(item_factors)
+
+            # 归一化评分
+            normalized_ratings = new_user_ratings.withColumn(
+                "normalized_rating",
+                (col("rating") - rating_min) / (rating_max - rating_min)
+            )
+
+            # 计算用户偏好
+            user_preference = (normalized_ratings
+                               .join(item_factors_broadcast, normalized_ratings.tmdbId == item_factors.id, "inner")
+                               .withColumn("features", to_float_array(col("features")))
+                               .withColumn("feature", explode(col("features")))
+                               .withColumn("weighted_feature", col("normalized_rating") * col("feature"))
+                               .groupBy("userId", "tmdbId")
+                               .agg(sum("weighted_feature").alias("preference")))
+
+            return user_preference
+
         # 获取用户未评分的物品
         unrated_items = get_unrated_items(user_id, ratings)
 
-        # 为用户生成用户-物品对
-        user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
+        # 检查用户是否存在于模型中
+        user_factors_count = model.userFactors.filter(col("id") == user_id).count()
+        if user_factors_count != 0:
+            # 用户已经在模型中，直接预测
+            # 为用户生成用户-物品对
+            user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
 
-        # 分区处理以提高预测效率
-        user_item_pairs = user_item_pairs.repartition(100, "userId")
+            # 分区处理以提高预测效率
+            user_item_pairs = user_item_pairs.repartition(100, "userId")
 
-        # 使用模型预测评分
-        predictions = model.transform(user_item_pairs)
+            # 使用模型预测评分
+            predictions = model.transform(user_item_pairs)
 
-        # 过滤掉无效预测并获取前 top_n 推荐
-        top_predictions = predictions.filter(col("prediction").isNotNull()) \
-            .orderBy(col("prediction").desc()) \
-            .limit(top_n)
+            # 过滤掉无效预测并获取前 top_n 推荐
+            top_predictions = predictions.filter(col("prediction").isNotNull()) \
+                .orderBy(col("prediction").desc()) \
+                .limit(top_n)
 
-        # 根据预测评分降序排序并取前 top_n 个结果
-        return top_predictions.select("userId", "tmdbId", "title", "prediction")
+            # 根据预测评分降序排序并取前 top_n 个结果
+            return top_predictions.select("userId", "tmdbId", "prediction")
+        else:
+            # 用户不在模型中，需要手动计算用户偏好
+            # 加载物品因子并计算用户偏好
+            item_factors = model.itemFactors
+            item_factors_broadcast = broadcast(item_factors)
+
+            # 获取新用户的评分数据
+            new_user_ratings = ratings.filter(col("userId") == user_id)
+
+            # 计算用户偏好
+            user_preference = calculate_user_preference(new_user_ratings, item_factors)
+
+            # 对用户偏好进行归一化
+            exploded_item_factors = item_factors_broadcast.withColumn("feature", explode(col("features"))) \
+                .groupBy("id").agg(sum("feature").alias("weighted_feature"))
+
+            # 计算用户偏好的总和
+            sum_of_user_preference = user_preference.agg(sum("preference")).collect()[0][0]
+
+            # 计算用户偏好与物品特征的加权乘积
+            top_predictions = unrated_items.join(exploded_item_factors,
+                                                 unrated_items.tmdbId == exploded_item_factors.id, "inner") \
+                .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
+                .orderBy(col("prediction").desc()).limit(top_n)
+
+            return top_predictions
 
     def is_model_exists(spark, path):
         """
@@ -495,14 +556,17 @@ def collaborative_filtering(user_id):
     # 初始化 Spark 会话
     spark = create_spark_session()
 
+    # 将用户 ID 转换为整数类型
+    user_id = int(user_id)
+
     # 配置数据路径
     ratings_path = "/TMDB_dataset/ratings_with_tmdbid.csv"
     model_path = "/TMDB_dataset/als_model"
 
     try:
         # 从 MySQL 加载评分数据
-        mysql_url = "jdbc:mysql://localhost:3307/movie_recommendation"
-        mysql_user = "root"
+        mysql_url = "jdbc:mysql://192.168.123.199:3306/movie_recommendation"
+        mysql_user = "wsl_root"
         mysql_password = "zhujiayou"
         ratings = get_table_from_mysql(spark, "ratings", mysql_url, mysql_user, mysql_password)
 

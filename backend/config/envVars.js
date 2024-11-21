@@ -13,6 +13,11 @@ const ENV_VARS = {
   TMDB_ACCESS_TOKEN: process.env.TMDB_ACCESS_TOKEN,
   EMAIL_USER: process.env.EMAIL_USER,
   EMAIL_PASS: process.env.EMAIL_PASS,
+  MYSQL_HOST: process.env.MYSQL_HOST,
+  MYSQL_PORT: process.env.MYSQL_PORT,
+  MYSQL_USER: process.env.MYSQL_USER,
+  MYSQL_PASSWORD: process.env.MYSQL_PASSWORD,
+  MYSQL_DB: process.env.MYSQL_DB,
 };
 
 export default ENV_VARS;

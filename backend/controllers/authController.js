@@ -7,8 +7,8 @@ import generateVerificationToken from '../utils/generateVerificationToken.js';
 import generateTokenAndSetCookie from '../utils/generateTokenAndSetCookie.js';
 import {
   sendResetPasswordEmail,
-  sendVerificationEmail,
   sendResetSuccessEmail,
+  sendVerificationEmail,
 } from '../emails/emails.js';
 
 const signup = async (req, res) => {
@@ -36,9 +36,16 @@ const signup = async (req, res) => {
         verificationTokenExpiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
       });
 
+      // Generate intId
+      const hash = crypto.createHash('md5').
+        update(newUser._id.toString()).
+        digest('hex');
+      newUser.intId = parseInt(hash.substring(0, 7), 16);
       await newUser.save();
 
+      console.log(`newUser.intId: ${newUser.intId}`);
       console.log(`Email: ${email}`);
+
       generateTokenAndSetCookie(res, newUser._id);
       await sendVerificationEmail(email, verificationToken);
 

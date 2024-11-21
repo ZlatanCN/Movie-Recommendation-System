@@ -7,18 +7,20 @@ const useRating = () => {
   const fetchRatedMovies = async () => {
     try {
       const response = await axios.get('/api/rating');
-      const sortedMovies = response.data.content.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const sortedMovies = response.data.content.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      );
       setRatedmovies(sortedMovies);
     } catch (error) {
       console.error(error);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchRatedMovies()
+    fetchRatedMovies();
   }, []);
 
   return { ratedmovies, setRatedmovies };
-}
+};
 
 export default useRating;

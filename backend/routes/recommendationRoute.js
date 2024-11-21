@@ -11,7 +11,7 @@ const router = express.Router()
 router.get('/content/:id', recommendContentBased)
 
 // @desc    Get collaborative filtering recommendations
-// @route   GET /api/recommendation/collaborative/:id
-router.get('/collaborative/:id', recommendCollaborative)
+// @route   GET /api/recommendation/collaborative
+router.get('/collaborative', recommendCollaborative)
 
 export default router

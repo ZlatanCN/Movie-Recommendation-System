@@ -1,12 +1,12 @@
 import express from 'express';
 import {
-  signup,
+  checkAuth,
+  forgotPassword,
   login,
   logout,
-  verifyEmail,
-  forgotPassword,
   resetPassword,
-  checkAuth,
+  signup,
+  verifyEmail,
 } from '../controllers/authController.js';
 import verifyToken from '../middleware/verifyToken.js';
 

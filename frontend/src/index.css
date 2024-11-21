@@ -34,13 +34,13 @@
 /*  @apply bg-gray-800 border-red-600*/
 /*}*/
 
-/*.ant-otp {*/
-/*  @apply flex justify-between gap-5*/
-/*}*/
+.ant-otp {
+  @apply flex justify-between gap-5
+}
 
-/*.ant-otp-input {*/
-/*  @apply w-12 h-12 text-center text-2xl font-bold bg-gray-700 text-white border-2 border-gray-700 rounded-lg*/
-/*}*/
+.ant-otp-input {
+  @apply w-12 h-12 text-center text-2xl font-bold bg-gray-700 text-white border-2 border-gray-700 rounded-lg
+}
 
 .ant-message .ant-message-notice-wrapper .ant-message-notice-content {
   @apply bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-xl shadow-xl
