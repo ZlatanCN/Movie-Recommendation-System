@@ -6,6 +6,7 @@ const useRecommendation = () => {
   const [recommendedMovies, setRecommendedMovies] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [dominantColor, setDominantColor] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const startIndex = currentPage - 1;
   const currentMovie = recommendedMovies.slice(startIndex, startIndex + 1);
 
@@ -15,10 +16,11 @@ const useRecommendation = () => {
     } else if (direction === 'next') {
       setCurrentPage((prev) => Math.min(prev + 1, recommendedMovies.length));
     }
-  }
+  };
 
   const fetchRecommendations = async () => {
     try {
+      setIsLoading(true);
       const response = await axios.get(
         `/api/recommendation/collaborative`);
       if (response.data.isSuccessful) {
@@ -32,6 +34,8 @@ const useRecommendation = () => {
     } catch {
       console.log('Error fetching recommendations');
       setRecommendedMovies([]);
+    } finally {
+      setIsLoading(false);
     }
 
     // setRecommendedMovies([
@@ -93,7 +97,8 @@ const useRecommendation = () => {
     currentPage,
     dominantColor,
     handleDirection,
+    isLoading,
   };
-}
+};
 
 export default useRecommendation;

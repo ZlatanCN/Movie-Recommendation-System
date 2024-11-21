@@ -293,6 +293,8 @@ def collaborative_filtering(user_id):
                 .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
                 .orderBy(col("prediction").desc()).limit(top_n)
 
+            user_subset_recs = model.recommendForUserSubset(new_user_ratings.select("userId"), top_n)
+
             return final_items
 
     def save_to_mysql(df, table_name, mysql_url, mysql_user, mysql_password):
