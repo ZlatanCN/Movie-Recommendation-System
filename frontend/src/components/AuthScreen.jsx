@@ -1,4 +1,4 @@
-import PropTypes from 'prop-types';
+
 import NavBar from './NavBar.jsx';
 import { MailOutlined, RightOutlined } from '@ant-design/icons';
 import { ConfigProvider, Input } from 'antd';
@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import AuthScreenSection from './AuthScreenSection.jsx';
 import { useNavigate } from 'react-router-dom';
 
-const AuthScreen = (props) => {
+const AuthScreen = () => {
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
@@ -66,7 +66,5 @@ const AuthScreen = (props) => {
     </div>
   );
 };
-
-AuthScreen.propTypes = {};
 
 export default AuthScreen;

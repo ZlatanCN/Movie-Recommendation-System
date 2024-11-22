@@ -1,6 +1,7 @@
 import io
 import logging
 
+import numpy as np
 import sys
 import time
 from pyspark.ml.recommendation import ALS, ALSModel
@@ -278,24 +279,57 @@ def collaborative_filtering(user_id):
             # 根据预测评分降序排序并取前 top_n 个结果
             return top_predictions.select("userId", "tmdbId", "prediction")
         else:
+            # item_factors = model.itemFactors
+            # item_factors_broadcast = broadcast(item_factors)
+            # new_user_ratings = ratings.filter(col("userId") == user_id)
+            # user_preference = calculate_user_preference(new_user_ratings, item_factors)
+            #
+            # exploded_item_factors = item_factors_broadcast.withColumn("feature", explode(col("features"))) \
+            #     .groupBy("id").agg(sum("feature").alias("weighted_feature"))
+            #
+            # sum_of_user_preference = user_preference.agg(sum("preference")).collect()[0][0]
+            #
+            # final_items = unrated_items.join(exploded_item_factors, unrated_items.tmdbId == exploded_item_factors.id,
+            #                                  "inner") \
+            #     .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
+            #     .orderBy(col("prediction").desc()).limit(top_n)
+            #
+            # user_subset_recs = model.recommendForUserSubset(new_user_ratings.select("userId"), top_n)
+            #
+            # return final_items
+
             item_factors = model.itemFactors
-            item_factors_broadcast = broadcast(item_factors)
-            new_user_ratings = ratings.filter(col("userId") == user_id)
-            user_preference = calculate_user_preference(new_user_ratings, item_factors)
+            item_factors_dict = {row.id: row.features for row in item_factors.collect()} # 将物品因子转换为字典
+            # print("item_factors_dict: ", item_factors_dict)
 
-            exploded_item_factors = item_factors_broadcast.withColumn("feature", explode(col("features"))) \
-                .groupBy("id").agg(sum("feature").alias("weighted_feature"))
+            new_user_ratings = ratings.filter(col("userId") == user_id) # 获取用户的评分数据
+            regularization = 0.4 # 正则化参数
+            # print("regularization: ", regularization)
 
-            sum_of_user_preference = user_preference.agg(sum("preference")).collect()[0][0]
+            rated_movie_ids = new_user_ratings.select("tmdbId").rdd.flatMap(lambda x: x).collect() # 获取用户评分过的电影 ID
+            rated_movie_ratings = new_user_ratings.select("rating").rdd.flatMap(lambda x: x).collect() # 获取用户对电影的评分
+            V = np.array([item_factors_dict[tmdbId] for tmdbId in rated_movie_ids if tmdbId in item_factors_dict]) # 获取用户评分过的电影的物品因子
+            # print('rated_movie_ids: ', rated_movie_ids)
+            # print('rated_movie_ratings: ', rated_movie_ratings)
+            # print('V: ', V)
 
-            final_items = unrated_items.join(exploded_item_factors, unrated_items.tmdbId == exploded_item_factors.id,
-                                             "inner") \
-                .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
-                .orderBy(col("prediction").desc()).limit(top_n)
+            lambda_eye = regularization * np.eye(V.shape[1]) # 创建正则化矩阵
+            user_factor = np.linalg.solve(V.T @ V + lambda_eye, V.T @ rated_movie_ratings) # 计算用户因子
+            # print('lambda_eye: ', lambda_eye)
+            # print('user_factor: ', user_factor)
 
-            user_subset_recs = model.recommendForUserSubset(new_user_ratings.select("userId"), top_n)
+            unrated_movie_ids = unrated_items.select("tmdbId") \
+                .rdd.flatMap(lambda x: x) \
+                .filter(lambda x: x in item_factors_dict) \
+                .collect() # 获取用户未评分的电影 ID
+            unrated_movie_factors = np.array(
+                [item_factors_dict[tmdbId] for tmdbId in unrated_movie_ids if tmdbId in item_factors_dict]
+            ) # 获取用户未评分的电影的物品因子
+            predicted_ratings = unrated_movie_factors @ user_factor # 计算用户对所有电影的预测评分
 
-            return final_items
+            recommended_movies = sorted(zip(unrated_movie_ids, predicted_ratings), key=lambda x: x[1], reverse=True)[:top_n] # 获取前 top_n 推荐
+            print('recommended_movies: ', recommended_movies)
+
 
     def save_to_mysql(df, table_name, mysql_url, mysql_user, mysql_password):
         """
