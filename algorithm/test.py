@@ -7,7 +7,7 @@ import time
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, udf, explode, sum, broadcast
-from pyspark.sql.types import FloatType, ArrayType
+from pyspark.sql.types import FloatType, ArrayType, Row
 
 # 设置标准输出的编码格式为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -299,37 +299,47 @@ def collaborative_filtering(user_id):
             # return final_items
 
             item_factors = model.itemFactors
-            item_factors_dict = {row.id: row.features for row in item_factors.collect()} # 将物品因子转换为字典
+            item_factors_dict = {row.id: row.features for row in item_factors.collect()}  # 将物品因子转换为字典
             # print("item_factors_dict: ", item_factors_dict)
 
-            new_user_ratings = ratings.filter(col("userId") == user_id) # 获取用户的评分数据
-            regularization = 0.4 # 正则化参数
+            new_user_ratings = ratings.filter(col("userId") == user_id)  # 获取用户的评分数据
+            regularization = 0.4  # 正则化参数
             # print("regularization: ", regularization)
 
-            rated_movie_ids = new_user_ratings.select("tmdbId").rdd.flatMap(lambda x: x).collect() # 获取用户评分过的电影 ID
-            rated_movie_ratings = new_user_ratings.select("rating").rdd.flatMap(lambda x: x).collect() # 获取用户对电影的评分
-            V = np.array([item_factors_dict[tmdbId] for tmdbId in rated_movie_ids if tmdbId in item_factors_dict]) # 获取用户评分过的电影的物品因子
+            rated_movie_ids = new_user_ratings.select("tmdbId").rdd.flatMap(lambda x: x).collect()  # 获取用户评分过的电影 ID
+            rated_movie_ratings = new_user_ratings.select("rating").rdd.flatMap(lambda x: x).collect()  # 获取用户对电影的评分
+            V = np.array([item_factors_dict[tmdbId] for tmdbId in rated_movie_ids if
+                          tmdbId in item_factors_dict])  # 获取用户评分过的电影的物品因子
             # print('rated_movie_ids: ', rated_movie_ids)
             # print('rated_movie_ratings: ', rated_movie_ratings)
             # print('V: ', V)
 
-            lambda_eye = regularization * np.eye(V.shape[1]) # 创建正则化矩阵
-            user_factor = np.linalg.solve(V.T @ V + lambda_eye, V.T @ rated_movie_ratings) # 计算用户因子
+            lambda_eye = regularization * np.eye(V.shape[1])  # 创建正则化矩阵
+            user_factor = np.linalg.solve(V.T @ V + lambda_eye, V.T @ rated_movie_ratings)  # 计算用户因子
             # print('lambda_eye: ', lambda_eye)
             # print('user_factor: ', user_factor)
 
             unrated_movie_ids = unrated_items.select("tmdbId") \
                 .rdd.flatMap(lambda x: x) \
                 .filter(lambda x: x in item_factors_dict) \
-                .collect() # 获取用户未评分的电影 ID
+                .collect()  # 获取用户未评分的电影 ID
             unrated_movie_factors = np.array(
                 [item_factors_dict[tmdbId] for tmdbId in unrated_movie_ids if tmdbId in item_factors_dict]
-            ) # 获取用户未评分的电影的物品因子
-            predicted_ratings = unrated_movie_factors @ user_factor # 计算用户对所有电影的预测评分
+            )  # 获取用户未评分的电影的物品因子
+            predicted_ratings = unrated_movie_factors @ user_factor  # 计算用户对所有电影的预测评分
 
-            recommended_movies = sorted(zip(unrated_movie_ids, predicted_ratings), key=lambda x: x[1], reverse=True)[:top_n] # 获取前 top_n 推荐
+            recommended_movies = sorted(zip(unrated_movie_ids, predicted_ratings), key=lambda x: x[1], reverse=True)[
+                                 :top_n]  # 获取前 top_n 推荐
             print('recommended_movies: ', recommended_movies)
 
+            # 将数据转换为 Row 对象，并确保每个字段都是正确的类型
+            rows = [Row(tmdbId=int(movie[0]), prediction=float(movie[1])) for movie in recommended_movies]
+
+            # 创建 DataFrame
+            recommended_movies_df = spark.createDataFrame(rows)
+
+            # 显示 DataFrame
+            recommended_movies_df.show()
 
     def save_to_mysql(df, table_name, mysql_url, mysql_user, mysql_password):
         """

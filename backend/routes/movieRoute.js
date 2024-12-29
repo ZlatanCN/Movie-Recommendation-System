@@ -13,7 +13,7 @@ const router = express.Router();
 // @route   GET /api/movie/trending
 router.get('/trending', getTrendingMovie);
 
-// @desc    Get movie details
+// @desc    Get movie trailers
 // @route   GET /api/movie/:movieId/trailers
 router.get('/:movieId/trailers', getMovieTrailers);
 

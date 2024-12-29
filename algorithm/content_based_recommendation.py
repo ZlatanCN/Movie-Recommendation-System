@@ -1,6 +1,7 @@
 import io
 import json
 
+import numpy as np
 import sys
 from flask import jsonify, Flask
 from py4j.java_gateway import java_import
@@ -11,8 +12,8 @@ from pyspark.ml.linalg import Vectors
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import col, udf, explode, sum, broadcast
-from pyspark.sql.types import FloatType, ArrayType
+from pyspark.sql.functions import col
+from pyspark.sql.types import FloatType, Row
 
 # 设置标准输出的编码格式为 UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -427,87 +428,73 @@ def collaborative_filtering(user_id):
             user_item_pairs = user_df.crossJoin(unrated_items)
             return user_item_pairs
 
-        def calculate_user_preference(new_user_ratings, item_factors, rating_min=0.0, rating_max=5.0):
-            """
-            计算用户偏好。
-            :param new_user_ratings: 包含新用户评分的 PySpark DataFrame。
-            :param item_factors: 包含物品因子的 PySpark DataFrame。
-            :param rating_min: 归一化评分的最小值。
-            :param rating_max: 归一化评分的最大值。
-            :return: 用户偏好的 PySpark DataFrame。
-            """
-            # 定义 UDF 将字符串转换为浮点数数组
-            to_float_array = udf(lambda x: [float(i) for i in x], ArrayType(FloatType()))
-
-            # 物品特征矩阵
-            item_factors_broadcast = broadcast(item_factors)
-
-            # 归一化评分
-            normalized_ratings = new_user_ratings.withColumn(
-                "normalized_rating",
-                (col("rating") - rating_min) / (rating_max - rating_min)
-            )
-
-            # 计算用户偏好
-            user_preference = (normalized_ratings
-                               .join(item_factors_broadcast, normalized_ratings.tmdbId == item_factors.id, "inner")
-                               .withColumn("features", to_float_array(col("features")))
-                               .withColumn("feature", explode(col("features")))
-                               .withColumn("weighted_feature", col("normalized_rating") * col("feature"))
-                               .groupBy("userId", "tmdbId")
-                               .agg(sum("weighted_feature").alias("preference")))
-
-            return user_preference
-
         # 获取用户未评分的物品
         unrated_items = get_unrated_items(user_id, ratings)
 
         # 检查用户是否存在于模型中
         user_factors_count = model.userFactors.filter(col("id") == user_id).count()
         if user_factors_count != 0:
-            # 用户已经在模型中，直接预测
-            # 为用户生成用户-物品对
+            # 如果用户存在于模型中，直接使用已有的模型预测评分
+            # 为用户生成所有可能的用户-物品对
             user_item_pairs = generate_user_item_pairs(user_id, unrated_items)
 
-            # 分区处理以提高预测效率
+            # 重新分区以优化性能，按 userId 列分区，设置分区数为 100
             user_item_pairs = user_item_pairs.repartition(100, "userId")
 
-            # 使用模型预测评分
+            # 使用协同过滤模型预测用户对每个未评分物品的评分
             predictions = model.transform(user_item_pairs)
 
-            # 过滤掉无效预测并获取前 top_n 推荐
+            # 过滤掉预测分数为空的条目，并按预测评分降序排序，保留前 top_n 条
             top_predictions = predictions.filter(col("prediction").isNotNull()) \
                 .orderBy(col("prediction").desc()) \
                 .limit(top_n)
 
-            # 根据预测评分降序排序并取前 top_n 个结果
+            # 返回包含用户 ID、物品 ID 和预测评分的结果
             return top_predictions.select("userId", "tmdbId", "prediction")
         else:
-            # 用户不在模型中，需要手动计算用户偏好
-            # 加载物品因子并计算用户偏好
+            # 如果用户不存在于模型中，需手动计算用户的潜在偏好
+            # 加载物品因子（模型中的每个物品的潜在特征向量）
             item_factors = model.itemFactors
-            item_factors_broadcast = broadcast(item_factors)
+            # 将物品因子数据转换为字典格式，键为物品 ID，值为特征向量
+            item_factors_dict = {row.id: row.features for row in item_factors.collect()}
 
-            # 获取新用户的评分数据
+            # 获取该用户的评分数据
             new_user_ratings = ratings.filter(col("userId") == user_id)
+            # 设置正则化参数，用于解决矩阵运算中的过拟合问题
+            regularization = 0.4
 
-            # 计算用户偏好
-            user_preference = calculate_user_preference(new_user_ratings, item_factors)
+            # 获取用户评分过的电影 ID 列表
+            rated_movie_ids = new_user_ratings.select("tmdbId").rdd.flatMap(lambda x: x).collect()
+            # 获取用户对这些电影的评分值
+            rated_movie_ratings = new_user_ratings.select("rating").rdd.flatMap(lambda x: x).collect()
+            # 获取用户评分过的电影的物品因子矩阵
+            V = np.array([item_factors_dict[tmdbId] for tmdbId in rated_movie_ids if tmdbId in item_factors_dict])
 
-            # 对用户偏好进行归一化
-            exploded_item_factors = item_factors_broadcast.withColumn("feature", explode(col("features"))) \
-                .groupBy("id").agg(sum("feature").alias("weighted_feature"))
+            # 创建正则化矩阵（单位矩阵乘以正则化参数）
+            lambda_eye = regularization * np.eye(V.shape[1])
+            # 根据公式计算用户的潜在特征向量（user factor）
+            user_factor = np.linalg.solve(V.T @ V + lambda_eye, V.T @ rated_movie_ratings)
 
-            # 计算用户偏好的总和
-            sum_of_user_preference = user_preference.agg(sum("preference")).collect()[0][0]
+            # 获取用户未评分的电影 ID 列表，确保只包含模型中存在的物品 ID
+            unrated_movie_ids = unrated_items.select("tmdbId") \
+                .rdd.flatMap(lambda x: x) \
+                .filter(lambda x: x in item_factors_dict) \
+                .collect()
+            # 获取未评分电影对应的物品因子矩阵
+            unrated_movie_factors = np.array(
+                [item_factors_dict[tmdbId] for tmdbId in unrated_movie_ids if tmdbId in item_factors_dict]
+            )
 
-            # 计算用户偏好与物品特征的加权乘积
-            top_predictions = unrated_items.join(exploded_item_factors,
-                                                 unrated_items.tmdbId == exploded_item_factors.id, "inner") \
-                .drop('id').withColumn("prediction", col("weighted_feature") * sum_of_user_preference) \
-                .orderBy(col("prediction").desc()).limit(top_n)
+            # 计算用户对未评分电影的预测评分
+            predicted_ratings = unrated_movie_factors @ user_factor
 
-            return top_predictions
+            # 对预测结果按评分降序排序，并提取前 top_n 条
+            top_predictions = sorted(zip(unrated_movie_ids, predicted_ratings), key=lambda x: x[1], reverse=True)[
+                              :top_n]
+            # 将结果转换为 Spark DataFrame 格式
+            rows = [Row(tmdbId=int(movie[0]), prediction=float(movie[1])) for movie in top_predictions]
+
+            return spark.createDataFrame(rows)
 
     def is_model_exists(spark, path):
         """

@@ -24,7 +24,7 @@ const NavBar = (props) => {
       return (
         <header
           className={'max-w-6xl mx-auto flex items-center justify-between p-4 pb-10 pt-7'}>
-          <img src={'/netflix-logo.png'} alt={'netflixLogo'}
+          <img src={'/filmify-logo-lg.png'} alt={'netflixLogo'}
                className={'w-32 md:w-52'}/>
           <Link to={'/login'}>
             <motion.button
@@ -44,7 +44,7 @@ const NavBar = (props) => {
           className={'max-w-6xl mx-auto flex flex-wrap items-center justify-between p-4 h-20 pt-7 mb-7'}>
           <nav className={'flex items-center gap-10 z-50'}>
             <Link to={'/'}>
-              <img src={'/netflix-logo.png'} alt={'netflixLogo'}
+              <img src={'/filmify-logo-lg.png'} alt={'netflixLogo'}
                    className={'w-32 sm:w-40'}/>
             </Link>
 
